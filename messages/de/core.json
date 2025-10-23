@@ -114,7 +114,7 @@
     "connect_wallet_description": "Ein Solana-Wallet wird benötigt, um die Herausforderung abzuschließen und NFTs freizuschalten",
     "back_to_lessons": "Zurück zu den Lektionen",
     "back_to_homepage": "Zurück zur Startseite",
-    "head_to_challenges": "Zurück zu den Herausforderungen", 
+    "head_to_challenges": "Zurück zu den Herausforderungen",
     "requirements_title": "Herausforderung",
     "upload_program_btn": "Programm hochladen",
     "run_program_btn": "Ausführen",
@@ -143,7 +143,7 @@
     "mint_modal_skip_description": "Du kannst deine freigeschalteten Belohnungen auf der Herausforderungsseite sehen.",
     "mint_modal_tweet": "Auf X teilen",
     "share_on_x": "Auf X teilen",
-    "challenge_share_tweet": "Ich habe gerade die Herausforderung {challengeTitle} von @blueshift_gg abgeschlossen.\n\nProbier es hier aus: {challengeUrl}\n\nMake the shift. Build on @solana.",
+    "challenge_share_tweet": "Ich habe gerade die Herausforderung {challengeTitle} von @blueshift abgeschlossen.\n\nProbier es hier aus: {challengeUrl}\n\nMake the shift. Build on @solana.",
     "assistance_prompt": {
       "title": "Brauchst du Hilfe?",
       "body": "Es sieht so aus, als hättest du Schwierigkeiten. Wenn du nicht weiterkommst, kannst du gerne in unserer Discord-Community um Hilfe bitten.",
