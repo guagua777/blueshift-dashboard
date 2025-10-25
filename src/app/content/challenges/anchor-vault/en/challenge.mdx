@@ -89,11 +89,14 @@ pub struct VaultAction<'info> {
 
 Let's break down each account constraint:
 
+
 1. `signer`: The `mut` constraint is needed because we'll be modifying its lamports during transfers.
-2. `vault`: 
-  - `mut` because we'll be modifying its lamports
-  - `seeds` & `bumps` defines how to derive a valid PDA from the seeds
-3. `system_program`: checks if the account is set to executable and that the address is the System Program one
+
+2. `vault`:  
+    - `mut` because we'll be modifying its lamports.  
+    - `seeds` & `bumps` define how to derive a valid PDA from the seeds.  
+
+3. `system_program`: checks if the account is set to executable and that the address is the System Program one.
 
 <ArticleSection name="Errors" id="errors" level="h2" />
 
