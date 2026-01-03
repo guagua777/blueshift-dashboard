@@ -259,7 +259,7 @@ export default function TableOfContents() {
           })}
         </div>
       </div>
-      {githubUrl ? (
+      {githubUrl ?
         <a
           href={githubUrl}
           target="_blank"
@@ -271,7 +271,7 @@ export default function TableOfContents() {
             {t("contents.view_source")}
           </span>
         </a>
-      ) : null}
+      : null}
     </motion.div>
   );
 }
