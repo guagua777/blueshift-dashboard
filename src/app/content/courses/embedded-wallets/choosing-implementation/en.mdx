@@ -1,0 +1,530 @@
+import { ArticleSection } from "../../../../components/ArticleSection/ArticleSection";
+
+# Choosing and Implementing Your Solution
+
+You've now seen four approaches to embedded wallets on Solana: Privy's flexible authentication, Dynamic's MPC with Wallet-as-a-Service, LazorKit's passkey smart wallets, and Para's multi-chain MPC platform. Each solves the same core problem—eliminating seed phrases—through different technical architectures and with different tradeoffs.
+
+This lesson consolidates everything into a decision framework and provides implementation patterns for common scenarios.
+
+<ArticleSection name="Provider Comparison Matrix" id="comparison-matrix" level="h2" />
+
+### Authentication Methods
+
+| Provider | Email | Phone | Social OAuth | Passkeys | External Wallets (MWA) |
+|----------|-------|-------|--------------|----------|------------------------|
+| Privy    | Yes   | Yes   | Yes          | Yes      | Yes                    |
+| Dynamic  | Yes   | No    | Yes          | Yes      | Yes                    |
+| LazorKit | No    | No    | No           | Yes      | No (Wallet Standard)   |
+| Para     | Yes   | Yes   | Yes          | Yes      | No                     |
+
+### Security Architecture
+
+| Provider | Key Storage | Signing Model | Key Extraction |
+|----------|-------------|---------------|----------------|
+| Privy    | MPC (2-of-2: device + Privy) | Threshold signing | No |
+| Dynamic  | MPC with TSS-FROST | Threshold signing | Yes (export available) |
+| LazorKit | Device secure enclave | On-chain verification | Never leaves enclave |
+| Para     | MPC distributed | Threshold signing | No |
+
+### Developer Experience
+
+| Provider | SDK Size | Setup Complexity | Documentation |
+|----------|----------|------------------|---------------|
+| Privy    | Medium   | Low              | Excellent     |
+| Dynamic  | Large    | Medium           | Good          |
+| LazorKit | Small    | Low              | Good          |
+| Para     | Large    | Medium           | Good          |
+
+### Pricing Models
+
+| Provider | Free Tier | Pricing Structure |
+|----------|-----------|-------------------|
+| Privy    | Yes (limited MAU) | Per MAU |
+| Dynamic  | Yes (limited users) | Per user + features |
+| LazorKit | Yes (devnet) | Contact for mainnet |
+| Para     | Yes (beta) | Contact for production |
+
+**Note:** Pricing changes frequently. Always verify current rates in provider dashboards.
+
+<ArticleSection name="Decision Framework" id="decision-framework" level="h2" />
+
+### Start Here: What Are You Building?
+
+**Consumer app for non-crypto users**
+→ Minimize crypto concepts, maximize familiar UX
+→ **Recommended:** LazorKit (biometric only) or Privy (multiple auth options)
+
+**Crypto app that wants easier onboarding**
+→ Users may already have wallets, want option for both
+→ **Recommended:** Privy (hybrid embedded + MWA support)
+
+**Enterprise or high-security application**
+→ Compliance, audit trails, maximum control
+→ **Recommended:** Turnkey (bring your own auth) or Dynamic (WaaS features)
+
+**Multi-chain application**
+→ Need EVM, Solana, and/or Cosmos from same wallet
+→ **Recommended:** Para (native multi-chain) or Dynamic (EVM + Solana)
+
+### Secondary Considerations
+
+**Gas sponsorship is critical**
+→ LazorKit (built-in paymaster with USDC) or Privy (dashboard configuration)
+
+**Users must be able to export keys**
+→ Dynamic (full key export, Google Drive backup)
+
+**Passkey-only is acceptable**
+→ LazorKit (purpose-built) reduces complexity
+
+**Need Wallet Standard compatibility**
+→ LazorKit (native) or Privy (via MWA adapter)
+
+<ArticleSection name="Implementation Patterns" id="implementation-patterns" level="h2" />
+
+### Pattern 1: Mainstream Consumer App
+
+Goal: Users never see "wallet" anywhere in the UI. They authenticate like any other app.
+
+```typescript
+// Using LazorKit for invisible wallet experience
+
+import { LazorKitProvider, useWallet } from '@lazorkit/wallet-mobile-adapter';
+
+function App() {
+  return (
+    <LazorKitProvider
+      rpcUrl="https://api.mainnet-beta.solana.com"
+      portalUrl="https://portal.lazor.sh"
+      configPaymaster={{
+        paymasterUrl: "https://kora.mainnet.lazorkit.com",
+        apiKey: process.env.LAZORKIT_API_KEY, // You pay all fees
+      }}
+    >
+      <MainApp />
+    </LazorKitProvider>
+  );
+}
+
+function MainApp() {
+  const { connect, isConnected, smartWalletPubkey, signAndSendTransaction } = useWallet();
+  const [hasAccount, setHasAccount] = useState(false);
+
+  // On first launch, auto-create wallet in background
+  useEffect(() => {
+    const checkAccount = async () => {
+      // Check if user has existing session
+      if (isConnected) {
+        setHasAccount(true);
+        return;
+      }
+      
+      // Could show onboarding that leads to connect
+      // Or auto-connect for returning users
+    };
+    
+    checkAccount();
+  }, [isConnected]);
+
+  // When user needs to perform an action
+  const handlePurchase = async (item: Product) => {
+    if (!isConnected) {
+      // First action triggers passkey setup
+      await connect({ redirectUrl: 'myapp://purchase' });
+    }
+
+    // Build purchase instruction
+    const purchaseIx = createPurchaseInstruction(item, smartWalletPubkey);
+    
+    // Execute - user sees "Authorize with FaceID" not "Sign transaction"
+    await signAndSendTransaction(
+      { instructions: [purchaseIx] },
+      { redirectUrl: 'myapp://purchase-complete' }
+    );
+  };
+
+  return <ProductCatalog onPurchase={handlePurchase} />;
+}
+```
+
+**Key UX principles:**
+- Never say "wallet" or "blockchain" in user-facing copy
+- Use action-oriented language: "Authorize purchase" not "Sign transaction"
+- Hide all transaction details behind "Advanced" toggles
+- Auto-sponsor all gas fees
+
+### Pattern 2: Hybrid Crypto App
+
+Goal: Support both new users (embedded) and existing crypto users (external wallets).
+
+```typescript
+// Using Privy for maximum flexibility
+
+import { PrivyProvider, usePrivy, useSolanaWallets } from '@privy-io/expo';
+
+function WalletSelection() {
+  const { authenticated, login, connectWallet } = usePrivy();
+  const { wallets } = useSolanaWallets();
+
+  const embeddedWallet = wallets.find(w => w.walletClientType === 'privy');
+  const externalWallet = wallets.find(w => w.walletClientType !== 'privy');
+
+  const handleNewUser = async () => {
+    // New users get embedded wallet via email
+    await login({ loginMethod: 'email' });
+    // Embedded wallet created automatically
+  };
+
+  const handleExistingUser = async () => {
+    // Crypto users connect their existing wallet
+    await connectWallet({ walletClientType: 'solana' });
+    // MWA connection to Phantom/Solflare
+  };
+
+  if (!authenticated) {
+    return (
+      <View>
+        <Text style={styles.header}>Get Started</Text>
+        
+        <Button
+          title="Continue with Email"
+          onPress={handleNewUser}
+          style={styles.primaryButton}
+        />
+        
+        <Text style={styles.divider}>or</Text>
+        
+        <Button
+          title="Connect Existing Wallet"
+          onPress={handleExistingUser}
+          style={styles.secondaryButton}
+        />
+      </View>
+    );
+  }
+
+  // Show active wallet(s)
+  return (
+    <View>
+      {embeddedWallet && (
+        <WalletCard
+          label="App Wallet"
+          address={embeddedWallet.address}
+          type="embedded"
+        />
+      )}
+      {externalWallet && (
+        <WalletCard
+          label={externalWallet.walletName || 'External Wallet'}
+          address={externalWallet.address}
+          type="external"
+        />
+      )}
+    </View>
+  );
+}
+```
+
+**Key UX principles:**
+- Equal prominence for both options (don't hide external wallet support)
+- Clear labeling of wallet sources
+- Allow users to add both types over time
+- Consistent transaction UX regardless of wallet type
+
+### Pattern 3: Power User App with Export
+
+Goal: Embedded wallet convenience with escape hatch for power users.
+
+```typescript
+// Using Dynamic for WaaS features
+
+import { dynamicClient } from './dynamic';
+
+function WalletSettings() {
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  const handleBackup = async () => {
+    try {
+      await dynamicClient.wallets.embedded.createBackup({
+        provider: 'google_drive',
+      });
+      Alert.alert('Backup Created', 'Your wallet is now backed up to Google Drive.');
+    } catch (error) {
+      Alert.alert('Backup Failed', error.message);
+    }
+  };
+
+  const handleExport = async () => {
+    Alert.alert(
+      'Export Private Key',
+      'This will show your private key. Anyone with this key has full control of your wallet. Are you sure?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Export',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const wallets = await dynamicClient.wallets.getWallets();
+              const wallet = wallets.find(w => w.chain === 'SOL');
+              
+              const privateKey = await dynamicClient.wallets.embedded.exportKey({
+                walletId: wallet.id,
+              });
+              
+              // Show in secure modal with copy button
+              showPrivateKeyModal(privateKey);
+            } catch (error) {
+              Alert.alert('Export Failed', error.message);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  return (
+    <View>
+      <Text style={styles.sectionHeader}>Wallet Security</Text>
+      
+      <SettingsRow
+        title="Backup to Google Drive"
+        subtitle="Restore your wallet on any device"
+        onPress={handleBackup}
+      />
+      
+      <Button
+        title={showAdvanced ? 'Hide Advanced' : 'Show Advanced'}
+        onPress={() => setShowAdvanced(!showAdvanced)}
+      />
+      
+      {showAdvanced && (
+        <View style={styles.advancedSection}>
+          <SettingsRow
+            title="Export Private Key"
+            subtitle="Transfer wallet to another app"
+            onPress={handleExport}
+            danger
+          />
+          
+          <SettingsRow
+            title="Import Existing Wallet"
+            subtitle="Bring in a wallet you already have"
+            onPress={handleImport}
+          />
+        </View>
+      )}
+    </View>
+  );
+}
+```
+
+**Key UX principles:**
+- Advanced features hidden by default
+- Strong warnings before destructive actions
+- Backup encouraged before export
+- Import allows gradual migration
+
+### Pattern 4: Enterprise Multi-Chain
+
+Goal: Single authentication, wallets on multiple chains, audit trail.
+
+```typescript
+// Using Para for multi-chain support
+
+import { ParaMobile, WalletType } from '@getpara/react-native-wallet';
+
+const para = new ParaMobile(API_KEY, undefined, { disableWorkers: true });
+
+async function setupUserWallets() {
+  // Single authentication
+  const authState = await para.signUpOrLogIn({ auth: { email: userEmail } });
+  
+  if (authState?.stage === 'verify') {
+    await para.verifyNewAccount({ verificationCode });
+    await para.registerPasskey(authState);
+  } else if (authState?.stage === 'login') {
+    await para.loginWithPasskey();
+  }
+
+  // Create wallets for all needed chains
+  const chains = [WalletType.SOLANA, WalletType.EVM, WalletType.COSMOS];
+  
+  for (const chain of chains) {
+    const existingWallet = para.getWalletsByType(chain)[0];
+    if (!existingWallet) {
+      await para.createWallet({ type: chain, skipDistribute: false });
+    }
+  }
+
+  // Return unified wallet view
+  return {
+    solana: para.getWalletsByType(WalletType.SOLANA)[0],
+    evm: para.getWalletsByType(WalletType.EVM)[0],
+    cosmos: para.getWalletsByType(WalletType.COSMOS)[0],
+  };
+}
+
+function MultiChainDashboard() {
+  const [wallets, setWallets] = useState(null);
+
+  useEffect(() => {
+    setupUserWallets().then(setWallets);
+  }, []);
+
+  return (
+    <View>
+      {wallets?.solana && (
+        <ChainCard
+          name="Solana"
+          address={wallets.solana.address}
+          icon="solana"
+        />
+      )}
+      {wallets?.evm && (
+        <ChainCard
+          name="Ethereum"
+          address={wallets.evm.address}
+          icon="ethereum"
+        />
+      )}
+      {wallets?.cosmos && (
+        <ChainCard
+          name="Cosmos"
+          address={wallets.cosmos.address}
+          icon="cosmos"
+        />
+      )}
+    </View>
+  );
+}
+```
+
+**Key UX principles:**
+- Single login creates all chain wallets
+- Unified dashboard across chains
+- Chain-specific actions when needed
+- Clear labeling of which chain funds are on
+
+<ArticleSection name="Common Pitfalls" id="common-pitfalls" level="h2" />
+
+### Pitfall 1: Testing on Emulators
+
+Passkey operations require actual device secure enclaves. Emulators don't have them.
+
+**Solution:** Always test on physical devices. Use emulators only for UI layout.
+
+### Pitfall 2: Forgetting Deep Links
+
+OAuth and passkey flows redirect to external browsers/systems. Without proper deep links, users can't return.
+
+**Solution:** Configure `app.json` scheme, add iOS `associatedDomains`, configure Android `intentFilters`.
+
+### Pitfall 3: Missing Polyfills
+
+Solana libraries expect Node.js APIs that React Native doesn't have.
+
+**Solution:** Always import polyfills first:
+```typescript
+import 'react-native-get-random-values';
+import 'react-native-url-polyfill/auto';
+import { Buffer } from 'buffer';
+global.Buffer = global.Buffer || Buffer;
+```
+
+### Pitfall 4: Exposing API Keys
+
+API keys in client code can be extracted.
+
+**Solution:** 
+- Use environment variables (not committed to git)
+- For sensitive operations, proxy through your backend
+- Use provider-side restrictions (domain allowlists, rate limits)
+
+### Pitfall 5: Ignoring Error States
+
+Network failures, user cancellations, and expired sessions happen.
+
+**Solution:** Handle every error callback:
+```typescript
+onFail: (error) => {
+  if (error.message.includes('cancelled')) return; // User intentional
+  if (error.message.includes('network')) {
+    // Retry logic or offline state
+  }
+  // Log for debugging
+  console.error('Wallet error:', error);
+}
+```
+
+<ArticleSection name="Production Checklist" id="production-checklist" level="h2" />
+
+Before launching, verify:
+
+### Authentication
+- [ ] All auth methods tested on real devices
+- [ ] Session persistence works across app restarts
+- [ ] Logout clears all sensitive data
+- [ ] Deep links configured and tested
+
+### Transactions
+- [ ] Sufficient error handling for all failure modes
+- [ ] Transaction simulation before submission
+- [ ] Confirmation feedback to users
+- [ ] Gas estimation and fee display (if not sponsored)
+
+### Security
+- [ ] API keys not exposed in client bundles
+- [ ] HTTPS for all backend communications
+- [ ] Input validation on addresses and amounts
+- [ ] Rate limiting on sensitive operations
+
+### UX
+- [ ] Loading states for all async operations
+- [ ] Clear error messages (not technical jargon)
+- [ ] Retry options for recoverable failures
+- [ ] Help/support access for stuck users
+
+### Compliance
+- [ ] Terms of service accepted before wallet creation
+- [ ] Privacy policy disclosure
+- [ ] Data retention policies documented
+- [ ] Regulatory requirements for your jurisdiction
+
+<ArticleSection name="The Bigger Picture" id="bigger-picture" level="h2" />
+
+Embedded wallets represent a fundamental shift in how users interact with blockchain applications. The seed phrase era required users to become their own banks—complete with all the operational security that entails. Most people aren't equipped for that responsibility.
+
+These providers have found the middle ground: users authenticate with familiar patterns while cryptographic security happens invisibly. The wallet becomes infrastructure, not interface.
+
+But remember L0STE's perspective from the introduction:
+
+> "Most of the UX is read-only, so once you know what is the wallet of the user (and you can let them sign a message with deeplink) you don't need any wallet component inside."
+
+The best wallet experience might be no wallet experience at all. Consider whether you truly need embedded wallets, or if address-based read access with occasional deeplinks to external wallets serves your users better.
+
+For apps where signing is frequent, where onboarding friction kills conversion, where users truly don't care about the blockchain underneath—embedded wallets are transformative.
+
+For apps that are mostly read-only with occasional high-value transactions—a simple MWA connection might be simpler, more decentralized, and equally effective.
+
+Choose based on your users' needs, not the technology's novelty.
+
+<ArticleSection name="Course Summary" id="course-summary" level="h2" />
+
+Over five lessons, you've learned:
+
+1. **Introduction**: Why embedded wallets exist and the provider landscape
+2. **Privy**: Flexible authentication with hybrid wallet support
+3. **Dynamic**: MPC architecture with Wallet-as-a-Service features
+4. **LazorKit**: Passkey smart wallets with built-in gas sponsorship
+5. **Implementation**: Decision frameworks and production patterns
+
+You now have the knowledge to:
+- Choose the right embedded wallet provider for your use case
+- Implement authentication flows for mainstream users
+- Handle transactions, messages, and session management
+- Build production-ready apps with proper error handling
+
+The challenge ahead? Build something. Pick a provider, start a project, and get code running on a real device. The documentation examples will only take you so far—shipping an actual app teaches lessons no course can.
+
+Welcome to the seedless future of Solana mobile development.

@@ -226,6 +226,36 @@
         "advanced-functionalities": "Fonctionnalités avancées",
         "conclusion": "Conclusion"
       }
+    },
+    "mobile-wallet-adapter": {
+      "title": "Mobile Wallet Adapter",
+      "description": "Créez des dApps Solana mobiles natives avec le protocole Mobile Wallet Adapter. Maîtrisez les connexions wallet, la signature de transactions et l'intégration React Native.",
+      "lessons": {
+        "introduction": "Introduction",
+        "protocol-deep-dive": "Analyse approfondie du protocole",
+        "environment-setup": "Configuration de l'environnement",
+        "connecting-to-wallets": "Connexion aux wallets",
+        "signing-transactions": "Signature des transactions",
+        "signing-messages": "Signature des messages",
+        "authorization-provider": "Authorization Provider",
+        "error-handling": "Gestion des erreurs",
+        "testing-on-device": "Tests sur appareil",
+        "conclusion": "Conclusion"
+      }
+    },
+    "mwa-deep-dive": {
+      "title": "MWA Deep Dive",
+      "description": "Maîtrisez les rouages du protocole Mobile Wallet Adapter. Apprenez l'échange de clés ECDH, le chiffrement AES-GCM, les méthodes JSON-RPC, la vérification d'identité et les techniques de débogage.",
+      "lessons": {
+        "architecture": "L'architecture MWA",
+        "transport-layer": "La couche transport",
+        "association": "Association",
+        "session-establishment": "Établissement de session",
+        "encrypted-messages": "Le protocole de messages chiffrés",
+        "rpc-methods": "Référence des méthodes JSON-RPC",
+        "identity-verification": "Vérification d'identité",
+        "reflector-and-debugging": "Protocole Reflector & Débogage"
+      }
     }
   }
 }

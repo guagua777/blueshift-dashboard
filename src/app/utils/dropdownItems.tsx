@@ -49,6 +49,11 @@ const categoryDropdownItem = {
       icon: { name: "General" as const },
     },
     {
+      label: "Mobile",
+      value: "mobile",
+      icon: { name: "Solana" as const },
+    },
+    {
       label: "Rust",
       value: "rust",
       icon: { name: "Rust" as const },

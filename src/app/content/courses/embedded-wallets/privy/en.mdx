@@ -1,0 +1,553 @@
+import { ArticleSection } from "../../../../components/ArticleSection/ArticleSection";
+
+# Privy: Flexible Authentication
+
+Privy takes a pragmatic approach to embedded wallets: support every authentication method users might want, and let developers choose the right combination for their app. This means you can offer email login to mainstream users while still connecting crypto-native users through their existing Phantom or Solflare wallets.
+
+The Expo SDK (`@privy-io/expo`) provides React Native bindings that work with both embedded Solana wallets and external wallets via Mobile Wallet Adapter. For this lesson, we'll focus on the embedded wallet path—creating wallets from email, phone, or social authentication.
+
+<ArticleSection name="Understanding Privy's Architecture" id="understanding-privys-architecture" level="h2" />
+
+When a user authenticates with Privy, several things happen behind the scenes:
+
+1. **Identity verification**: Privy confirms the user's email, phone, or OAuth identity
+2. **Key generation**: If the user doesn't have a wallet, Privy's secure infrastructure generates a keypair
+3. **Key splitting**: The private key is split using MPC, with shares distributed between the user's device and Privy's HSMs
+4. **Session establishment**: A session token enables signing operations without re-authentication
+
+The critical security property: Privy *cannot* sign transactions alone. Both the user's device share and Privy's share are required. If Privy is compromised, attackers get nothing usable.
+
+```
+┌──────────────┐                ┌──────────────┐
+│  User Device │                │ Privy HSMs   │
+│  (Share A)   │ ──[signing]── │ (Share B)    │
+│              │                │              │
+└──────────────┘                └──────────────┘
+        │                              │
+        └──────── MPC Protocol ────────┘
+                       │
+                ┌──────────────┐
+                │  Valid       │
+                │  Signature   │
+                └──────────────┘
+```
+
+<ArticleSection name="Project Setup" id="project-setup" level="h2" />
+
+### Installation
+
+Install the Privy Expo SDK and its peer dependencies:
+
+```shellscript
+npx expo install @privy-io/expo expo-web-browser expo-linking expo-secure-store
+```
+
+For Solana-specific functionality:
+
+```shellscript
+npm install @solana/web3.js react-native-get-random-values
+```
+
+### Polyfill Configuration
+
+Add the crypto polyfill to your entry file before any other imports:
+
+```typescript
+// App.tsx or index.js - MUST be first import
+import 'react-native-get-random-values';
+
+import { PrivyProvider } from '@privy-io/expo';
+import { PublicKey, Connection } from '@solana/web3.js';
+// ... rest of imports
+```
+
+### Provider Setup
+
+Wrap your app with `PrivyProvider`:
+
+```typescript
+import { PrivyProvider } from '@privy-io/expo';
+
+const PRIVY_APP_ID = 'your-privy-app-id'; // From Privy Dashboard
+
+export default function App() {
+  return (
+    <PrivyProvider
+      appId={PRIVY_APP_ID}
+      config={{
+        embedded: {
+          solana: {
+            createOnLogin: 'all-users', // Auto-create wallet on first login
+          },
+        },
+      }}
+    >
+      <Navigation />
+    </PrivyProvider>
+  );
+}
+```
+
+The `createOnLogin: 'all-users'` configuration means every authenticated user gets an embedded Solana wallet automatically. No extra wallet creation step required.
+
+<ArticleSection name="Authentication Flows" id="authentication-flows" level="h2" />
+
+Privy supports multiple authentication methods through a unified hook pattern.
+
+### Email Authentication
+
+```typescript
+import { usePrivy, useLoginWithEmail } from '@privy-io/expo';
+
+function EmailLogin() {
+  const { authenticated, user } = usePrivy();
+  const { sendCode, loginWithCode, state } = useLoginWithEmail();
+  const [email, setEmail] = useState('');
+  const [code, setCode] = useState('');
+
+  const handleSendCode = async () => {
+    try {
+      await sendCode({ email });
+      // User will receive a 6-digit code via email
+    } catch (error) {
+      console.error('Failed to send code:', error);
+    }
+  };
+
+  const handleVerify = async () => {
+    try {
+      await loginWithCode({ code });
+      // If successful, user is now authenticated
+      // Embedded wallet is created automatically
+    } catch (error) {
+      console.error('Invalid code:', error);
+    }
+  };
+
+  if (authenticated) {
+    return <Text>Welcome, {user?.email?.address}</Text>;
+  }
+
+  return (
+    <View>
+      {state.status === 'initial' && (
+        <>
+          <TextInput
+            value={email}
+            onChangeText={setEmail}
+            placeholder="Email"
+            keyboardType="email-address"
+          />
+          <Button title="Send Code" onPress={handleSendCode} />
+        </>
+      )}
+      
+      {state.status === 'awaiting-code-input' && (
+        <>
+          <TextInput
+            value={code}
+            onChangeText={setCode}
+            placeholder="6-digit code"
+            keyboardType="number-pad"
+          />
+          <Button title="Verify" onPress={handleVerify} />
+        </>
+      )}
+    </View>
+  );
+}
+```
+
+The `state` object tracks the authentication flow:
+- `initial`: Ready to send code
+- `sending-code`: Network request in progress
+- `awaiting-code-input`: Code sent, waiting for user input
+- `submitting-code`: Verifying the code
+- `done`: Authentication complete
+
+### Social Login (OAuth)
+
+```typescript
+import { useLoginWithOAuth } from '@privy-io/expo';
+
+function SocialLogin() {
+  const { login, state } = useLoginWithOAuth();
+
+  const handleGoogleLogin = async () => {
+    try {
+      await login({ provider: 'google' });
+      // Opens system browser for OAuth flow
+      // Returns to app after completion
+    } catch (error) {
+      console.error('OAuth failed:', error);
+    }
+  };
+
+  return (
+    <View>
+      <Button
+        title="Continue with Google"
+        onPress={handleGoogleLogin}
+        disabled={state.status === 'loading'}
+      />
+      <Button
+        title="Continue with Apple"
+        onPress={() => login({ provider: 'apple' })}
+      />
+      <Button
+        title="Continue with Discord"
+        onPress={() => login({ provider: 'discord' })}
+      />
+    </View>
+  );
+}
+```
+
+OAuth opens the system browser (via `expo-web-browser`), completes authentication with the provider, and returns to your app via deep link. Configure your deep link scheme in `app.json`:
+
+```json
+{
+  "expo": {
+    "scheme": "your-app-scheme"
+  }
+}
+```
+
+<ArticleSection name="Working with Embedded Solana Wallets" id="working-with-embedded-solana-wallets" level="h2" />
+
+Once authenticated, access the user's embedded Solana wallet through the `useEmbeddedSolanaWallet` hook.
+
+### Accessing the Wallet
+
+```typescript
+import { usePrivy, useEmbeddedSolanaWallet } from '@privy-io/expo';
+import { PublicKey, Connection, LAMPORTS_PER_SOL } from '@solana/web3.js';
+
+function WalletDisplay() {
+  const { authenticated } = usePrivy();
+  const { wallets } = useEmbeddedSolanaWallet();
+  const [balance, setBalance] = useState<number | null>(null);
+
+  const wallet = wallets[0]; // Primary embedded wallet
+
+  useEffect(() => {
+    if (wallet?.address) {
+      const connection = new Connection('https://api.devnet.solana.com');
+      const pubkey = new PublicKey(wallet.address);
+      
+      connection.getBalance(pubkey).then((lamports) => {
+        setBalance(lamports / LAMPORTS_PER_SOL);
+      });
+    }
+  }, [wallet?.address]);
+
+  if (!authenticated || !wallet) {
+    return <Text>Not connected</Text>;
+  }
+
+  return (
+    <View>
+      <Text>Address: {wallet.address}</Text>
+      <Text>Balance: {balance?.toFixed(4)} SOL</Text>
+    </View>
+  );
+}
+```
+
+### Signing Messages
+
+Message signing proves wallet ownership without spending any funds. Useful for authentication flows like Sign-In With Solana (SIWS).
+
+```typescript
+import { useEmbeddedSolanaWallet } from '@privy-io/expo';
+import bs58 from 'bs58';
+
+function SignMessage() {
+  const { wallets } = useEmbeddedSolanaWallet();
+  const wallet = wallets[0];
+
+  const handleSign = async () => {
+    if (!wallet) return;
+
+    const message = 'Sign this message to prove wallet ownership';
+    const messageBytes = new TextEncoder().encode(message);
+
+    try {
+      // Get the provider interface for signing
+      const provider = await wallet.getProvider();
+      
+      const { signature } = await provider.request({
+        method: 'signMessage',
+        params: { message: messageBytes }
+      });
+      
+      console.log('Signature:', bs58.encode(new Uint8Array(signature)));
+    } catch (error) {
+      console.error('Signing failed:', error);
+    }
+  };
+
+  return <Button title="Sign Message" onPress={handleSign} />;
+}
+```
+
+### Signing and Sending Transactions
+
+For transactions, use the provider's `signAndSendTransaction` method:
+
+```typescript
+import { useEmbeddedSolanaWallet } from '@privy-io/expo';
+import {
+  Connection,
+  PublicKey,
+  Transaction,
+  SystemProgram,
+  LAMPORTS_PER_SOL,
+} from '@solana/web3.js';
+
+function SendTransaction() {
+  const { wallets } = useEmbeddedSolanaWallet();
+  const wallet = wallets[0];
+  const [recipient, setRecipient] = useState('');
+  const [amount, setAmount] = useState('');
+
+  const handleSend = async () => {
+    if (!wallet || !recipient || !amount) return;
+
+    const connection = new Connection('https://api.devnet.solana.com');
+    const fromPubkey = new PublicKey(wallet.address);
+    const toPubkey = new PublicKey(recipient);
+    const lamports = parseFloat(amount) * LAMPORTS_PER_SOL;
+
+    // Build the transaction
+    const { blockhash, lastValidBlockHeight } = 
+      await connection.getLatestBlockhash();
+
+    const transaction = new Transaction({
+      recentBlockhash: blockhash,
+      feePayer: fromPubkey,
+    }).add(
+      SystemProgram.transfer({
+        fromPubkey,
+        toPubkey,
+        lamports,
+      })
+    );
+
+    try {
+      // Get provider and sign/send via provider pattern
+      const provider = await wallet.getProvider();
+      
+      const { signature } = await provider.request({
+        method: 'signAndSendTransaction',
+        params: {
+          transaction: transaction,
+          connection: connection
+        }
+      });
+      
+      console.log('Transaction sent:', signature);
+      
+      // Wait for confirmation
+      await connection.confirmTransaction({
+        signature,
+        blockhash,
+        lastValidBlockHeight,
+      });
+      
+      console.log('Transaction confirmed!');
+    } catch (error) {
+      console.error('Transaction failed:', error);
+    }
+  };
+
+  return (
+    <View>
+      <TextInput
+        value={recipient}
+        onChangeText={setRecipient}
+        placeholder="Recipient address"
+      />
+      <TextInput
+        value={amount}
+        onChangeText={setAmount}
+        placeholder="Amount in SOL"
+        keyboardType="decimal-pad"
+      />
+      <Button title="Send" onPress={handleSend} />
+    </View>
+  );
+}
+```
+
+<ArticleSection name="Hybrid Wallet Support" id="hybrid-wallet-support" level="h2" />
+
+One of Privy's strengths is supporting both embedded and external wallets. Users can choose to use their existing Phantom wallet while others use the embedded option.
+
+### Detecting External Wallets via MWA
+
+Privy integrates with `@solana-mobile/wallet-standard-mobile` to connect external wallets:
+
+```typescript
+import { usePrivy, useSolanaWallets } from '@privy-io/expo';
+
+function HybridWalletSelector() {
+  const { authenticated, connectWallet } = usePrivy();
+  const { wallets: allWallets } = useSolanaWallets();
+
+  // Filter by wallet type
+  const embeddedWallets = allWallets.filter(
+    (w) => w.walletClientType === 'privy'
+  );
+  const externalWallets = allWallets.filter(
+    (w) => w.walletClientType !== 'privy'
+  );
+
+  const handleConnectExternal = async () => {
+    try {
+      // Opens MWA connection to external wallet
+      await connectWallet({ walletClientType: 'solana' });
+    } catch (error) {
+      console.error('Failed to connect external wallet:', error);
+    }
+  };
+
+  return (
+    <View>
+      <Text>Embedded Wallets:</Text>
+      {embeddedWallets.map((wallet) => (
+        <Text key={wallet.address}>{wallet.address}</Text>
+      ))}
+      
+      <Text>External Wallets:</Text>
+      {externalWallets.map((wallet) => (
+        <Text key={wallet.address}>{wallet.address}</Text>
+      ))}
+      
+      <Button title="Connect Phantom/Solflare" onPress={handleConnectExternal} />
+    </View>
+  );
+}
+```
+
+This hybrid approach is powerful for apps that want to:
+- Onboard new users with embedded wallets (zero friction)
+- Support existing crypto users with their preferred wallets
+- Migrate users from embedded to external wallets as they become more sophisticated
+
+<ArticleSection name="Session Management and Logout" id="session-management" level="h2" />
+
+Privy maintains sessions automatically, but you control when to end them.
+
+```typescript
+import { usePrivy } from '@privy-io/expo';
+
+function SessionManager() {
+  const { authenticated, user, logout } = usePrivy();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      // User is now logged out
+      // Embedded wallet is still there, just not accessible
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
+
+  if (!authenticated) {
+    return <LoginScreen />;
+  }
+
+  return (
+    <View>
+      <Text>Logged in as: {user?.email?.address || 'User'}</Text>
+      <Button title="Logout" onPress={handleLogout} />
+    </View>
+  );
+}
+```
+
+**Important**: Logging out doesn't delete the wallet. When the user logs back in with the same identity, they regain access to the same wallet with all its funds intact.
+
+<ArticleSection name="Gas Sponsorship" id="gas-sponsorship" level="h2" />
+
+Privy supports gas sponsorship through their dashboard configuration. When enabled, you can pay transaction fees on behalf of users—critical for onboarding users who don't yet hold SOL.
+
+Configure sponsorship in the Privy Dashboard under your app settings. Once enabled:
+
+```typescript
+const { signature } = await wallet.signAndSendTransaction(
+  transaction,
+  connection,
+  { 
+    // Privy automatically handles fee sponsorship if configured
+  }
+);
+```
+
+The user's transaction executes even with zero SOL balance. You're billed through Privy for the sponsored fees.
+
+<ArticleSection name="Error Handling" id="error-handling" level="h2" />
+
+Privy operations can fail for several reasons. Handle them appropriately:
+
+```typescript
+import { useLoginWithEmail } from '@privy-io/expo';
+
+function RobustEmailLogin() {
+  const { sendCode, loginWithCode, state } = useLoginWithEmail();
+
+  const handleLogin = async (email: string, code: string) => {
+    try {
+      await loginWithCode({ code });
+    } catch (error: any) {
+      if (error.code === 'invalid_credentials') {
+        Alert.alert('Invalid Code', 'Please check the code and try again.');
+      } else if (error.code === 'rate_limited') {
+        Alert.alert('Too Many Attempts', 'Please wait before trying again.');
+      } else if (error.code === 'network_error') {
+        Alert.alert('Network Error', 'Check your connection and try again.');
+      } else {
+        Alert.alert('Error', error.message || 'Something went wrong.');
+      }
+    }
+  };
+}
+```
+
+For wallet operations:
+
+```typescript
+const handleTransaction = async () => {
+  try {
+    const { signature } = await wallet.signAndSendTransaction(tx, connection);
+  } catch (error: any) {
+    if (error.message?.includes('insufficient funds')) {
+      Alert.alert('Insufficient Funds', 'Please add SOL to your wallet.');
+    } else if (error.message?.includes('user rejected')) {
+      // User cancelled the signing prompt
+      console.log('User rejected transaction');
+    } else {
+      Alert.alert('Transaction Failed', error.message);
+    }
+  }
+};
+```
+
+<ArticleSection name="When to Choose Privy" id="when-to-choose-privy" level="h2" />
+
+Privy is ideal when:
+
+- **You need multiple auth methods**: Email, phone, and social login in one SDK
+- **Hybrid wallet support matters**: Users can use embedded OR external wallets
+- **You want a managed service**: Privy handles infrastructure, you focus on UX
+- **Gas sponsorship is important**: Built-in support with dashboard configuration
+
+Consider alternatives when:
+
+- **You need full control over key infrastructure**: Turnkey provides more customization
+- **Passkey-only is preferred**: LazorKit is purpose-built for this
+- **Multi-chain is required**: Para supports EVM, Solana, and Cosmos equally
+
+In the next lesson, we'll explore Dynamic's approach with MPC and their Wallet-as-a-Service features for users who want more control over their keys.

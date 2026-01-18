@@ -1,0 +1,632 @@
+import { ArticleSection } from "../../../../components/ArticleSection/ArticleSection";
+
+# Dynamic: MPC and Wallet-as-a-Service
+
+Dynamic approaches embedded wallets with Threshold Signature Schemes (TSS) and Multi-Party Computation (MPC). For Solana specifically, they implement EdDSA FROST—a protocol that produces native Ed25519 signatures without any adaptation layer. The signature your app receives is indistinguishable from one produced by a traditional Solana wallet.
+
+Beyond the cryptographic foundations, Dynamic provides Wallet-as-a-Service (WaaS) features: users can backup their wallet share to Google Drive, export their full private key, or import existing keys. This gives users escape hatches that traditional embedded wallets often lack.
+
+<ArticleSection name="MPC Architecture Explained" id="mpc-architecture-explained" level="h2" />
+
+Traditional wallets store a complete private key in one place. If that location is compromised, the key is stolen. MPC eliminates this single point of failure by splitting the key into shares that never exist together.
+
+### Threshold Signature Schemes (TSS)
+
+TSS allows a group of parties to collaboratively produce a signature without any party knowing the complete key. Dynamic uses a 2-of-2 threshold for embedded wallets:
+
+- **Share 1**: Stored on the user's device (encrypted)
+- **Share 2**: Stored in Dynamic's secure infrastructure
+
+Both shares are required to sign. Neither alone reveals the private key.
+
+```
+Traditional Key:          MPC Key:
+┌──────────────┐         ┌─────────────┐   ┌─────────────┐
+│ Private Key  │   vs.   │  Share A    │ + │  Share B    │
+│ (complete)   │         │  (partial)  │   │  (partial)  │
+└──────────────┘         └─────────────┘   └─────────────┘
+       │                        │                │
+   [signing]               [MPC protocol combines shares]
+       │                             │
+       ▼                             ▼
+   Signature               Same valid signature
+```
+
+### EdDSA FROST for Solana
+
+FROST (Flexible Round-Optimized Schnorr Threshold) is a threshold signature protocol specifically designed for Schnorr-based curves like Ed25519—the curve Solana uses.
+
+Why this matters:
+- **Native signatures**: No wrapping or format conversion needed
+- **Efficient**: Only two communication rounds to produce a signature
+- **Secure**: Proven security model against malicious participants
+
+When your app calls `signTransaction()`, Dynamic's SDK:
+1. Initiates the FROST protocol with Dynamic's backend
+2. Each party computes their partial signature from their share
+3. Partial signatures combine into a complete Ed25519 signature
+4. The signature is verified before being returned to your app
+
+<ArticleSection name="Project Setup" id="project-setup" level="h2" />
+
+### Installation
+
+Dynamic's React Native SDK requires several dependencies:
+
+```shellscript
+npm install @dynamic-labs/client
+npm install @dynamic-labs/react-native-extension
+npm install @dynamic-labs/solana-extension
+npm install @solana/web3.js
+npm install react-native-get-random-values
+npm install react-native-url-polyfill
+npm install @react-native-async-storage/async-storage
+npm install react-native-webview
+```
+
+### Polyfill Configuration
+
+Add polyfills to your entry file:
+
+```typescript
+// index.js or App.tsx - MUST be first
+import 'react-native-get-random-values';
+import 'react-native-url-polyfill/auto';
+
+import { createClient } from '@dynamic-labs/client';
+// ... rest of imports
+```
+
+### Client Initialization
+
+Dynamic for React Native requires the React Native extension:
+
+```typescript
+import { createClient } from '@dynamic-labs/client';
+import { ReactNativeExtension } from '@dynamic-labs/react-native-extension';
+import { SolanaExtension } from '@dynamic-labs/solana-extension';
+
+const dynamicClient = createClient({
+  environmentId: 'your-environment-id', // From Dynamic Dashboard
+})
+  .extend(ReactNativeExtension({
+    appOrigin: 'myapp://', // Your app's deep link scheme
+  }))
+  .extend(SolanaExtension());
+
+export { dynamicClient };
+```
+
+You also need to render the Dynamic WebView component in your app root for authentication flows:
+
+```tsx
+import { DynamicWebView } from '@dynamic-labs/react-native-extension';
+
+function App() {
+  return (
+    <>
+      <Navigation />
+      <DynamicWebView client={dynamicClient} />
+    </>
+  );
+}
+```
+
+**Note:** Obtain your `environmentId` from the Dynamic Dashboard after creating a project.
+
+<ArticleSection name="Authentication Flows" id="authentication-flows" level="h2" />
+
+Dynamic supports email magic links, social OAuth, and wallet connections.
+
+### Social Login
+
+```typescript
+import { dynamicClient } from './dynamic';
+import { ProviderEnum } from '@dynamic-labs/client';
+
+async function loginWithGoogle() {
+  try {
+    await dynamicClient.auth.social.connect({
+      provider: ProviderEnum.Google,
+    });
+    
+    // User is now authenticated
+    const user = await dynamicClient.auth.getUser();
+    console.log('Logged in:', user?.email);
+  } catch (error) {
+    console.error('Login failed:', error);
+  }
+}
+
+async function loginWithApple() {
+  await dynamicClient.auth.social.connect({
+    provider: ProviderEnum.Apple,
+  });
+}
+
+async function loginWithDiscord() {
+  await dynamicClient.auth.social.connect({
+    provider: ProviderEnum.Discord,
+  });
+}
+```
+
+### Email Magic Link
+
+```typescript
+async function loginWithEmail(email: string) {
+  try {
+    // Send magic link to email
+    await dynamicClient.auth.email.sendEmailVerification(email);
+    
+    // In a real app, user clicks link in email
+    // which redirects back to your app with a token
+    // The SDK handles the rest automatically
+  } catch (error) {
+    console.error('Failed to send magic link:', error);
+  }
+}
+```
+
+### Checking Authentication State
+
+```typescript
+function useAuthState() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    // Check initial state
+    const checkAuth = async () => {
+      const authenticated = await dynamicClient.auth.isAuthenticated();
+      setIsAuthenticated(authenticated);
+      
+      if (authenticated) {
+        const userData = await dynamicClient.auth.getUser();
+        setUser(userData);
+      }
+    };
+    
+    checkAuth();
+    
+    // Listen for auth changes
+    const unsubscribe = dynamicClient.auth.onChange((event) => {
+      setIsAuthenticated(event.isAuthenticated);
+      setUser(event.user);
+    });
+    
+    return () => unsubscribe();
+  }, []);
+
+  return { isAuthenticated, user };
+}
+```
+
+<ArticleSection name="Creating Embedded Wallets" id="creating-embedded-wallets" level="h2" />
+
+After authentication, create an embedded Solana wallet:
+
+```typescript
+async function createSolanaWallet() {
+  try {
+    // Check if wallet already exists
+    const existingWallets = await dynamicClient.wallets.getWallets();
+    const solanaWallet = existingWallets.find(
+      (w) => w.chain === 'SOL' && w.type === 'embedded'
+    );
+    
+    if (solanaWallet) {
+      console.log('Existing wallet:', solanaWallet.address);
+      return solanaWallet;
+    }
+    
+    // Create new embedded wallet
+    const wallet = await dynamicClient.wallets.embedded.createWallet({
+      chain: 'SOL',
+    });
+    
+    console.log('Created wallet:', wallet.address);
+    return wallet;
+  } catch (error) {
+    console.error('Wallet creation failed:', error);
+    throw error;
+  }
+}
+```
+
+The wallet is immediately usable after creation. The MPC shares are generated and distributed automatically.
+
+### Getting Wallet Information
+
+```typescript
+async function getWalletDetails() {
+  const wallets = await dynamicClient.wallets.getWallets();
+  
+  const solanaWallets = wallets.filter((w) => w.chain === 'SOL');
+  
+  for (const wallet of solanaWallets) {
+    console.log('Address:', wallet.address);
+    console.log('Type:', wallet.type); // 'embedded' or 'external'
+    console.log('Provider:', wallet.provider); // 'dynamic', 'phantom', etc.
+  }
+  
+  return solanaWallets;
+}
+```
+
+<ArticleSection name="Signing Transactions" id="signing-transactions" level="h2" />
+
+Dynamic provides methods for signing transactions and messages.
+
+### Sign and Send Transaction
+
+```typescript
+import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from '@solana/web3.js';
+
+async function sendSolTransaction(recipientAddress: string, amountSol: number) {
+  const wallets = await dynamicClient.wallets.getWallets();
+  const wallet = wallets.find((w) => w.chain === 'SOL' && w.type === 'embedded');
+  
+  if (!wallet) {
+    throw new Error('No Solana wallet found');
+  }
+
+  const connection = new Connection('https://api.devnet.solana.com');
+  const fromPubkey = new PublicKey(wallet.address);
+  const toPubkey = new PublicKey(recipientAddress);
+  
+  // Build transaction
+  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+  
+  const transaction = new Transaction({
+    recentBlockhash: blockhash,
+    feePayer: fromPubkey,
+  }).add(
+    SystemProgram.transfer({
+      fromPubkey,
+      toPubkey,
+      lamports: amountSol * LAMPORTS_PER_SOL,
+    })
+  );
+
+  // Serialize for signing
+  const serializedTransaction = transaction.serialize({
+    requireAllSignatures: false,
+    verifySignatures: false,
+  });
+
+  // Sign via MPC
+  const signedTransaction = await dynamicClient.wallets.signTransaction({
+    walletId: wallet.id,
+    transaction: serializedTransaction.toString('base64'),
+  });
+
+  // Deserialize and send
+  const signedTx = Transaction.from(
+    Buffer.from(signedTransaction, 'base64')
+  );
+  
+  const signature = await connection.sendRawTransaction(signedTx.serialize());
+  
+  await connection.confirmTransaction({
+    signature,
+    blockhash,
+    lastValidBlockHeight,
+  });
+
+  return signature;
+}
+```
+
+### Sign Message
+
+```typescript
+async function signMessage(message: string) {
+  const wallets = await dynamicClient.wallets.getWallets();
+  const wallet = wallets.find((w) => w.chain === 'SOL' && w.type === 'embedded');
+  
+  if (!wallet) {
+    throw new Error('No Solana wallet found');
+  }
+
+  const messageBytes = new TextEncoder().encode(message);
+  const messageBase64 = Buffer.from(messageBytes).toString('base64');
+
+  const signature = await dynamicClient.wallets.signMessage({
+    walletId: wallet.id,
+    message: messageBase64,
+  });
+
+  return {
+    signature,
+    message,
+    publicKey: wallet.address,
+  };
+}
+```
+
+<ArticleSection name="Wallet-as-a-Service Features" id="wallet-as-a-service" level="h2" />
+
+Dynamic's WaaS features give users control over their keys that other embedded wallet providers don't offer.
+
+### Export Full Private Key
+
+Users can export their complete private key to use in other wallets:
+
+```typescript
+async function exportWalletKey() {
+  const wallets = await dynamicClient.wallets.getWallets();
+  const wallet = wallets.find((w) => w.chain === 'SOL' && w.type === 'embedded');
+  
+  if (!wallet) {
+    throw new Error('No wallet to export');
+  }
+
+  // This requires additional user authentication
+  // Dynamic prompts for 2FA or re-authentication
+  const privateKey = await dynamicClient.wallets.embedded.exportKey({
+    walletId: wallet.id,
+  });
+
+  // CRITICAL: This is the full private key
+  // Warn users to store it securely
+  return privateKey;
+}
+```
+
+> **Warning**: Exporting private keys transfers full custody to the user. Once exported, the key exists outside Dynamic's MPC system. Handle with extreme caution in your UX.
+
+### Backup to Google Drive
+
+Users can backup their key share to their Google Drive:
+
+```typescript
+async function backupToGoogleDrive() {
+  try {
+    await dynamicClient.wallets.embedded.createBackup({
+      provider: 'google_drive',
+    });
+    
+    console.log('Backup created successfully');
+  } catch (error) {
+    console.error('Backup failed:', error);
+  }
+}
+
+async function restoreFromGoogleDrive() {
+  try {
+    await dynamicClient.wallets.embedded.restoreFromBackup({
+      provider: 'google_drive',
+    });
+    
+    console.log('Wallet restored from backup');
+  } catch (error) {
+    console.error('Restore failed:', error);
+  }
+}
+```
+
+This is especially valuable for:
+- Users who lose their device
+- Users switching to a new phone
+- Users who want a safety net without seed phrases
+
+### Import Existing Keys
+
+Users can bring existing wallets into Dynamic's MPC system:
+
+```typescript
+async function importExistingWallet(privateKeyBase58: string) {
+  try {
+    const wallet = await dynamicClient.wallets.embedded.importKey({
+      chain: 'SOL',
+      key: privateKeyBase58,
+    });
+    
+    console.log('Imported wallet:', wallet.address);
+    
+    // The key is now split and protected by MPC
+    // Original key should be securely deleted
+    return wallet;
+  } catch (error) {
+    console.error('Import failed:', error);
+  }
+}
+```
+
+After import, the wallet benefits from MPC protection. The original private key is split and distributed—it no longer exists as a single entity.
+
+<ArticleSection name="Transaction Tips for Solana" id="transaction-tips" level="h2" />
+
+Dynamic's documentation provides specific guidance for Solana transactions.
+
+### Versioned Transactions
+
+For v0 transactions with lookup tables:
+
+```typescript
+import { VersionedTransaction, TransactionMessage, AddressLookupTableAccount } from '@solana/web3.js';
+
+async function sendVersionedTransaction(
+  instructions: TransactionInstruction[],
+  lookupTableAddresses: PublicKey[]
+) {
+  const connection = new Connection('https://api.devnet.solana.com');
+  const wallet = await getEmbeddedWallet();
+  const payer = new PublicKey(wallet.address);
+
+  // Fetch lookup tables
+  const lookupTables: AddressLookupTableAccount[] = [];
+  for (const address of lookupTableAddresses) {
+    const result = await connection.getAddressLookupTable(address);
+    if (result.value) {
+      lookupTables.push(result.value);
+    }
+  }
+
+  const { blockhash } = await connection.getLatestBlockhash();
+
+  const messageV0 = new TransactionMessage({
+    payerKey: payer,
+    recentBlockhash: blockhash,
+    instructions,
+  }).compileToV0Message(lookupTables);
+
+  const transaction = new VersionedTransaction(messageV0);
+
+  // Sign with Dynamic
+  const signedTxBase64 = await dynamicClient.wallets.signTransaction({
+    walletId: wallet.id,
+    transaction: Buffer.from(transaction.serialize()).toString('base64'),
+  });
+
+  const signedTx = VersionedTransaction.deserialize(
+    Buffer.from(signedTxBase64, 'base64')
+  );
+
+  return connection.sendRawTransaction(signedTx.serialize());
+}
+```
+
+### Priority Fees
+
+Add priority fees for faster confirmation during network congestion:
+
+```typescript
+import { ComputeBudgetProgram } from '@solana/web3.js';
+
+const priorityFeeIx = ComputeBudgetProgram.setComputeUnitPrice({
+  microLamports: 1000, // Adjust based on network conditions
+});
+
+const computeLimitIx = ComputeBudgetProgram.setComputeUnitLimit({
+  units: 200_000,
+});
+
+// Add these instructions first
+transaction.add(priorityFeeIx, computeLimitIx, ...otherInstructions);
+```
+
+<ArticleSection name="Deep Links and Mobile Flow" id="deep-links" level="h2" />
+
+For mobile apps, configure deep links to handle OAuth redirects:
+
+### Expo Configuration
+
+```json
+// app.json
+{
+  "expo": {
+    "scheme": "your-app-scheme",
+    "ios": {
+      "associatedDomains": [
+        "applinks:your-domain.com"
+      ]
+    },
+    "android": {
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": [
+            {
+              "scheme": "your-app-scheme"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
+    }
+  }
+}
+```
+
+### Handling Redirects
+
+```typescript
+import * as Linking from 'expo-linking';
+
+useEffect(() => {
+  // Handle deep links when app is opened from URL
+  const handleDeepLink = (event: { url: string }) => {
+    const { url } = event;
+    
+    // Dynamic SDK automatically processes auth callbacks
+    // when the app URL matches expected pattern
+  };
+
+  const subscription = Linking.addEventListener('url', handleDeepLink);
+
+  // Handle initial URL if app was opened from a link
+  Linking.getInitialURL().then((url) => {
+    if (url) {
+      handleDeepLink({ url });
+    }
+  });
+
+  return () => subscription.remove();
+}, []);
+```
+
+<ArticleSection name="Error Handling" id="error-handling" level="h2" />
+
+Dynamic operations can fail at multiple points. Handle each appropriately:
+
+```typescript
+async function robustSignTransaction(transaction: Transaction) {
+  try {
+    const wallet = await getEmbeddedWallet();
+    
+    if (!wallet) {
+      throw new Error('NO_WALLET');
+    }
+
+    const signature = await dynamicClient.wallets.signTransaction({
+      walletId: wallet.id,
+      transaction: transaction.serialize({ requireAllSignatures: false }).toString('base64'),
+    });
+
+    return signature;
+  } catch (error: any) {
+    // Categorize errors
+    if (error.code === 'WALLET_NOT_FOUND') {
+      // User needs to create a wallet
+      throw new Error('Please create a wallet first');
+    }
+    
+    if (error.code === 'MPC_TIMEOUT') {
+      // Network or server issue with MPC protocol
+      throw new Error('Signing timed out. Please try again.');
+    }
+    
+    if (error.code === 'USER_REJECTED') {
+      // User cancelled the signing operation
+      throw new Error('Transaction cancelled');
+    }
+    
+    if (error.code === 'INSUFFICIENT_FUNDS') {
+      throw new Error('Insufficient SOL for transaction fees');
+    }
+    
+    // Unknown error
+    console.error('Sign transaction error:', error);
+    throw new Error('Failed to sign transaction');
+  }
+}
+```
+
+<ArticleSection name="When to Choose Dynamic" id="when-to-choose-dynamic" level="h2" />
+
+Dynamic is ideal when:
+
+- **Key portability matters**: Users want to export keys or backup to Google Drive
+- **MPC security is required**: Threshold signatures with proven cryptographic foundations
+- **Multi-chain is on the roadmap**: Dynamic supports EVM chains alongside Solana
+- **Advanced users need flexibility**: Import existing keys, export for use elsewhere
+
+Consider alternatives when:
+
+- **Passkey-only is preferred**: LazorKit is purpose-built for this
+- **Simpler integration is needed**: Privy has a more streamlined SDK
+- **Full infrastructure control is required**: Turnkey provides lower-level access
+
+In the next lesson, we'll explore LazorKit's passkey-native approach and how smart wallet PDAs change the security model entirely.

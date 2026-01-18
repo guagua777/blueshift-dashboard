@@ -226,6 +226,36 @@
         "advanced-functionalities": "高级功能",
         "conclusion": "总结"
       }
+    },
+    "mobile-wallet-adapter": {
+      "title": "移动钱包适配器",
+      "description": "使用移动钱包适配器协议构建原生Solana移动dApp。掌握钱包连接、交易签名和React Native集成。",
+      "lessons": {
+        "introduction": "介绍",
+        "protocol-deep-dive": "协议深入分析",
+        "environment-setup": "环境配置",
+        "connecting-to-wallets": "连接钱包",
+        "signing-transactions": "签署交易",
+        "signing-messages": "签署消息",
+        "authorization-provider": "授权提供者",
+        "error-handling": "错误处理",
+        "testing-on-device": "设备测试",
+        "conclusion": "总结"
+      }
+    },
+    "mwa-deep-dive": {
+      "title": "MWA 深入解析",
+      "description": "掌握 Mobile Wallet Adapter 协议内部机制。学习 ECDH 密钥交换、AES-GCM 加密、JSON-RPC 方法、身份验证和调试技术。",
+      "lessons": {
+        "architecture": "MWA 架构",
+        "transport-layer": "传输层",
+        "association": "关联",
+        "session-establishment": "会话建立",
+        "encrypted-messages": "加密消息协议",
+        "rpc-methods": "JSON-RPC 方法参考",
+        "identity-verification": "身份验证",
+        "reflector-and-debugging": "反射器协议与调试"
+      }
     }
   }
 }

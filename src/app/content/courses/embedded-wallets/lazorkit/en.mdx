@@ -1,0 +1,588 @@
+import { ArticleSection } from "../../../../components/ArticleSection/ArticleSection";
+
+# LazorKit: Passkey Smart Wallets
+
+LazorKit takes a fundamentally different approach to embedded wallets. Instead of splitting keys with MPC or storing them in HSMs, LazorKit creates **smart wallets**—Program Derived Addresses (PDAs) on Solana that are controlled by WebAuthn passkeys.
+
+The private key never leaves your device's secure enclave. FaceID, TouchID, or Windows Hello guards access to the passkey. The on-chain program verifies that only your passkey can authorize transactions from your smart wallet. It's hardware security meeting blockchain programmability.
+
+<ArticleSection name="Smart Wallet Architecture" id="smart-wallet-architecture" level="h2" />
+
+Traditional wallets are keypairs: a public key (your address) and a private key (your signing authority). Whoever holds the private key controls the wallet.
+
+LazorKit smart wallets work differently:
+
+```
+Traditional Wallet:           LazorKit Smart Wallet:
+┌────────────────┐            ┌────────────────────────┐
+│ Ed25519 Keypair │            │ Program Derived Address│
+│ (private key    │            │ (controlled by on-chain│
+│  controls all)  │            │  program logic)        │
+└────────────────┘            └────────────────────────┘
+        │                                │
+        │                      ┌─────────┴─────────┐
+        │                      │                   │
+   [sign with              [verify passkey    [verify passkey
+    private key]            signature]         signature]
+                                   │                   │
+                         ┌─────────────────┐  ┌─────────────────┐
+                         │ Device Secure   │  │ On-Chain Program│
+                         │ Enclave (P256)  │  │ (secp256r1)     │
+                         └─────────────────┘  └─────────────────┘
+```
+
+### How It Works
+
+1. **Passkey Creation**: When users connect, their device creates a WebAuthn credential (passkey) in the secure enclave
+2. **Smart Wallet Derivation**: LazorKit's on-chain program derives a PDA from the passkey's public key
+3. **Transaction Authorization**: To execute transactions, users sign a challenge with their passkey. The on-chain program verifies this signature using `secp256r1` (P256 curve) verification
+4. **Instruction Execution**: If the passkey signature is valid, the program executes the requested instructions on behalf of the smart wallet
+
+### The Security Model
+
+This architecture provides unique properties:
+
+- **No key extraction**: The passkey private key never leaves the secure enclave—not to LazorKit's servers, not to your app, not anywhere
+- **Hardware-bound**: Passkeys are tied to the physical device's security chip
+- **Programmable**: The on-chain program can enforce policies, spending limits, or multi-sig requirements
+- **Recoverable**: Key rotation and recovery can be built into the program logic
+
+<ArticleSection name="Project Setup" id="project-setup" level="h2" />
+
+### Installation
+
+For React Native mobile apps:
+
+```shellscript
+npm install @lazorkit/wallet-mobile-adapter
+npm install @coral-xyz/anchor @solana/web3.js
+npm install react-native-get-random-values
+```
+
+For Expo projects, also install:
+
+```shellscript
+npx expo install expo-web-browser expo-linking
+```
+
+### Polyfill Configuration
+
+Add the Buffer polyfill and crypto shim to your entry file:
+
+```typescript
+// App.tsx or index.js - MUST be first
+import 'react-native-get-random-values';
+import { Buffer } from 'buffer';
+global.Buffer = global.Buffer || Buffer;
+
+import { LazorKitProvider } from '@lazorkit/wallet-mobile-adapter';
+// ... rest of imports
+```
+
+### Provider Setup
+
+Wrap your app with `LazorKitProvider`:
+
+```typescript
+import { LazorKitProvider } from '@lazorkit/wallet-mobile-adapter';
+
+const DEFAULT_CONFIG = {
+  rpcUrl: 'https://api.devnet.solana.com',
+  portalUrl: 'https://portal.lazor.sh',
+  configPaymaster: {
+    paymasterUrl: 'https://kora.devnet.lazorkit.com',
+    // apiKey: 'YOUR_API_KEY', // Optional for devnet
+  },
+};
+
+export default function App() {
+  return (
+    <LazorKitProvider
+      rpcUrl={DEFAULT_CONFIG.rpcUrl}
+      portalUrl={DEFAULT_CONFIG.portalUrl}
+      configPaymaster={DEFAULT_CONFIG.configPaymaster}
+    >
+      <AppContent />
+    </LazorKitProvider>
+  );
+}
+```
+
+### Deep Link Configuration
+
+LazorKit uses deep links to return users to your app after passkey operations. Configure your scheme in `app.json` (Expo):
+
+```json
+{
+  "expo": {
+    "scheme": "myapp",
+    "ios": {
+      "bundleIdentifier": "com.yourcompany.myapp"
+    },
+    "android": {
+      "package": "com.yourcompany.myapp",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": [{ "scheme": "myapp" }],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
+    }
+  }
+}
+```
+
+<ArticleSection name="The useWallet Hook" id="use-wallet-hook" level="h2" />
+
+LazorKit's entire API centers around the `useWallet` hook:
+
+```typescript
+import { useWallet } from '@lazorkit/wallet-mobile-adapter';
+
+function WalletComponent() {
+  const {
+    // State
+    smartWalletPubkey,    // PublicKey | null - Your smart wallet address
+    passkeyPubkey,        // string | null - The passkey's public key
+    isConnected,          // boolean - Connection status
+    isLoading,            // boolean - Any operation in progress
+    isConnecting,         // boolean - Connection in progress
+    isSigning,            // boolean - Signing in progress
+    error,                // Error | null - Latest error
+    connection,           // Connection - Solana RPC connection
+
+    // Actions
+    connect,              // Create/restore passkey and smart wallet
+    disconnect,           // Clear local session
+    signMessage,          // Sign arbitrary messages
+    signAndSendTransaction, // Sign and submit transactions
+  } = useWallet();
+
+  // ...
+}
+```
+
+<ArticleSection name="Connecting with Passkeys" id="connecting-with-passkeys" level="h2" />
+
+The `connect` function triggers the native passkey flow—FaceID/TouchID on iOS, biometrics on Android.
+
+```typescript
+import { useWallet } from '@lazorkit/wallet-mobile-adapter';
+import { Button, View, Text, Alert } from 'react-native';
+
+function ConnectScreen() {
+  const { connect, isConnected, smartWalletPubkey, isConnecting } = useWallet();
+
+  const handleConnect = async () => {
+    try {
+      const result = await connect({
+        redirectUrl: 'myapp://home', // Return to this screen after passkey
+        onSuccess: (wallet) => {
+          console.log('Connected:', wallet.smartWallet);
+        },
+        onFail: (error) => {
+          Alert.alert('Connection Failed', error.message);
+        },
+      });
+    } catch (error) {
+      console.error('Connect error:', error);
+    }
+  };
+
+  if (isConnected && smartWalletPubkey) {
+    return (
+      <View>
+        <Text>Connected!</Text>
+        <Text>Smart Wallet: {smartWalletPubkey.toString()}</Text>
+      </View>
+    );
+  }
+
+  return (
+    <Button
+      title={isConnecting ? 'Connecting...' : 'Connect with Passkey'}
+      onPress={handleConnect}
+      disabled={isConnecting}
+    />
+  );
+}
+```
+
+### What Happens During Connect
+
+1. **Portal Opens**: The app opens LazorKit's portal (a web view) for passkey operations
+2. **Passkey Creation/Selection**: 
+   - New users: Device prompts to create a new passkey (biometric enrollment)
+   - Returning users: Device prompts to use existing passkey
+3. **Smart Wallet Creation**: If new, the on-chain program creates a PDA for this passkey
+4. **Return to App**: Portal redirects back via your deep link scheme
+
+The `redirectUrl` must match your app's configured scheme. Without it, users get stuck in the portal.
+
+<ArticleSection name="Signing Messages" id="signing-messages" level="h2" />
+
+Message signing with LazorKit uses WebAuthn signatures (P256/secp256r1), not Ed25519:
+
+```typescript
+function SignMessageDemo() {
+  const { signMessage, isConnected, isSigning } = useWallet();
+
+  const handleSignMessage = async () => {
+    if (!isConnected) {
+      Alert.alert('Not Connected', 'Please connect first');
+      return;
+    }
+
+    try {
+      const result = await signMessage(
+        'Verify wallet ownership for My Solana App',
+        {
+          redirectUrl: 'myapp://callback',
+          onSuccess: (data) => {
+            console.log('Signature:', data.signature);
+            console.log('Signed Payload:', data.signedPayload);
+          },
+          onFail: (error) => {
+            Alert.alert('Signing Failed', error.message);
+          },
+        }
+      );
+
+      // result contains both signature and signedPayload
+      return result;
+    } catch (error) {
+      console.error('Sign message error:', error);
+    }
+  };
+
+  return (
+    <Button
+      title={isSigning ? 'Signing...' : 'Sign Message'}
+      onPress={handleSignMessage}
+      disabled={isSigning || !isConnected}
+    />
+  );
+}
+```
+
+### Understanding P256 Signatures
+
+WebAuthn uses the P256 curve, which works differently from Solana's Ed25519:
+
+```typescript
+// What you get back from signMessage:
+{
+  signature: string,      // The P256 signature (base64)
+  signedPayload: string,  // The exact bytes that were signed
+}
+```
+
+The `signedPayload` is critical because WebAuthn doesn't sign your message directly. Instead:
+
+1. Browser constructs `clientDataJSON` (includes your message as a challenge)
+2. Authenticator creates `authenticatorData`
+3. Authenticator signs `sha256(authenticatorData + sha256(clientDataJSON))`
+
+To verify, you need both the signature and the exact signed bytes—hence `signedPayload`.
+
+<ArticleSection name="Sending Transactions" id="sending-transactions" level="h2" />
+
+LazorKit's `signAndSendTransaction` handles the entire transaction flow, including optional gas sponsorship:
+
+```typescript
+import { useWallet } from '@lazorkit/wallet-mobile-adapter';
+import { SystemProgram, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
+
+function SendSolDemo() {
+  const { signAndSendTransaction, smartWalletPubkey, isConnected, isSigning } = useWallet();
+  const [recipient, setRecipient] = useState('');
+  const [amount, setAmount] = useState('');
+
+  const handleSend = async () => {
+    if (!smartWalletPubkey || !recipient || !amount) return;
+
+    const recipientPubkey = new PublicKey(recipient);
+    const lamports = parseFloat(amount) * LAMPORTS_PER_SOL;
+
+    // Build the transfer instruction
+    const transferIx = SystemProgram.transfer({
+      fromPubkey: smartWalletPubkey,
+      toPubkey: recipientPubkey,
+      lamports,
+    });
+
+    try {
+      const signature = await signAndSendTransaction(
+        {
+          instructions: [transferIx],
+          transactionOptions: {
+            feeToken: 'USDC', // Pay fees in USDC instead of SOL
+            computeUnitLimit: 200_000,
+            clusterSimulation: 'devnet',
+          },
+        },
+        {
+          redirectUrl: 'myapp://callback',
+          onSuccess: (sig) => {
+            console.log('Transaction sent:', sig);
+            Alert.alert('Success', `TX: ${sig.slice(0, 20)}...`);
+          },
+          onFail: (error) => {
+            Alert.alert('Transaction Failed', error.message);
+          },
+        }
+      );
+
+      return signature;
+    } catch (error) {
+      console.error('Transaction error:', error);
+    }
+  };
+
+  return (
+    <View>
+      <TextInput
+        value={recipient}
+        onChangeText={setRecipient}
+        placeholder="Recipient address"
+      />
+      <TextInput
+        value={amount}
+        onChangeText={setAmount}
+        placeholder="Amount in SOL"
+        keyboardType="decimal-pad"
+      />
+      <Button
+        title={isSigning ? 'Sending...' : 'Send SOL'}
+        onPress={handleSend}
+        disabled={isSigning || !isConnected}
+      />
+    </View>
+  );
+}
+```
+
+### Transaction Options
+
+The `transactionOptions` object controls how the transaction is built and submitted:
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `feeToken` | `string` | Token to pay fees with (e.g., 'USDC'). Paymaster converts to SOL |
+| `computeUnitLimit` | `number` | Max compute units for the transaction |
+| `addressLookupTableAccounts` | `AddressLookupTableAccount[]` | For versioned (v0) transactions |
+| `clusterSimulation` | `'devnet' \| 'mainnet'` | Network for transaction simulation |
+
+<ArticleSection name="Built-in Paymaster" id="built-in-paymaster" level="h2" />
+
+One of LazorKit's killer features is integrated gas sponsorship. Users can transact without holding any SOL.
+
+### How the Paymaster Works
+
+1. **User signs transaction** with passkey (authorizing the instructions)
+2. **Paymaster wraps transaction** with fee payment instructions
+3. **Paymaster pays SOL fees** on behalf of the user
+4. **Transaction executes** on-chain
+
+The user only needs to approve their actual transaction—fee complexity is hidden.
+
+### Paying Fees in USDC
+
+```typescript
+const signature = await signAndSendTransaction(
+  {
+    instructions: [myInstruction],
+    transactionOptions: {
+      feeToken: 'USDC', // User pays equivalent in USDC
+    },
+  },
+  { redirectUrl: 'myapp://callback' }
+);
+```
+
+When `feeToken` is set:
+1. Paymaster calculates SOL fee equivalent in USDC
+2. Adds USDC transfer from user to paymaster
+3. Pays SOL fees from paymaster's balance
+4. Net effect: user pays in USDC, transaction succeeds
+
+### Full Sponsorship (You Pay)
+
+For complete onboarding flows where users have nothing:
+
+```typescript
+// Configure paymaster URL with your API key
+const config = {
+  configPaymaster: {
+    paymasterUrl: 'https://kora.devnet.lazorkit.com',
+    apiKey: 'YOUR_PAYMASTER_API_KEY', // Your account is billed
+  },
+};
+```
+
+With your API key configured, transactions execute at no cost to users. You're billed through LazorKit for sponsored fees.
+
+<ArticleSection name="Wallet Standard Integration" id="wallet-standard" level="h2" />
+
+LazorKit implements the [Solana Wallet Standard](https://github.com/wallet-standard/wallet-standard), meaning it works with standard wallet adapter libraries:
+
+```typescript
+import { registerLazorkitWallet } from '@lazorkit/wallet';
+import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
+import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
+import { useEffect, useMemo } from 'react';
+
+const CONFIG = {
+  RPC_URL: 'https://api.devnet.solana.com',
+  PORTAL_URL: 'https://portal.lazor.sh',
+  PAYMASTER: {
+    paymasterUrl: 'https://kora.devnet.lazorkit.com',
+  },
+};
+
+function AppProviders({ children }) {
+  // Register LazorKit once on mount
+  useEffect(() => {
+    registerLazorkitWallet({
+      rpcUrl: CONFIG.RPC_URL,
+      portalUrl: CONFIG.PORTAL_URL,
+      paymasterConfig: CONFIG.PAYMASTER,
+      clusterSimulation: 'devnet',
+    });
+  }, []);
+
+  const wallets = useMemo(() => [], []); // Standard wallets auto-detected
+
+  return (
+    <ConnectionProvider endpoint={CONFIG.RPC_URL}>
+      <WalletProvider wallets={wallets} autoConnect>
+        <WalletModalProvider>
+          {children}
+        </WalletModalProvider>
+      </WalletProvider>
+    </ConnectionProvider>
+  );
+}
+```
+
+Now LazorKit appears alongside Phantom, Solflare, and other wallets in your wallet modal. Users choose their preferred authentication method.
+
+<ArticleSection name="Session Management" id="session-management" level="h2" />
+
+LazorKit stores wallet information locally for seamless reconnection:
+
+```typescript
+function SessionDemo() {
+  const { isConnected, disconnect, smartWalletPubkey } = useWallet();
+
+  const handleDisconnect = async () => {
+    try {
+      await disconnect({
+        onSuccess: () => {
+          console.log('Disconnected successfully');
+        },
+        onFail: (error) => {
+          console.error('Disconnect failed:', error);
+        },
+      });
+    } catch (error) {
+      console.error('Disconnect error:', error);
+    }
+  };
+
+  if (!isConnected) {
+    return <ConnectScreen />;
+  }
+
+  return (
+    <View>
+      <Text>Wallet: {smartWalletPubkey?.toString()}</Text>
+      <Button title="Disconnect" onPress={handleDisconnect} />
+    </View>
+  );
+}
+```
+
+**Important**: Disconnecting clears the local session but doesn't delete the smart wallet on-chain. The user can reconnect with the same passkey and regain access to the same wallet and funds.
+
+<ArticleSection name="Error Handling" id="error-handling" level="h2" />
+
+LazorKit operations pass errors through callbacks. Build robust handlers:
+
+```typescript
+const handleConnect = async () => {
+  try {
+    await connect({
+      redirectUrl: 'myapp://home',
+      onSuccess: (wallet) => {
+        // Success!
+      },
+      onFail: (error) => {
+        // Categorize errors for appropriate UX
+        if (error.message.includes('cancelled')) {
+          // User cancelled passkey prompt - do nothing
+          return;
+        }
+        
+        if (error.message.includes('not supported')) {
+          Alert.alert(
+            'Passkeys Not Supported',
+            'Your device does not support passkey authentication.'
+          );
+          return;
+        }
+        
+        if (error.message.includes('network')) {
+          Alert.alert(
+            'Connection Error',
+            'Please check your internet connection and try again.'
+          );
+          return;
+        }
+        
+        // Unknown error
+        Alert.alert('Error', error.message);
+      },
+    });
+  } catch (error) {
+    // Unexpected error outside callbacks
+    console.error('Unexpected connect error:', error);
+  }
+};
+```
+
+For transactions:
+
+```typescript
+onFail: (error) => {
+  if (error.message.includes('insufficient')) {
+    Alert.alert('Insufficient Funds', 'Please add funds to your wallet.');
+  } else if (error.message.includes('simulation')) {
+    Alert.alert('Transaction Would Fail', 'The transaction was simulated and would fail.');
+  } else if (error.message.includes('timeout')) {
+    Alert.alert('Timeout', 'The operation took too long. Please try again.');
+  } else {
+    Alert.alert('Transaction Failed', error.message);
+  }
+}
+```
+
+<ArticleSection name="When to Choose LazorKit" id="when-to-choose-lazorkit" level="h2" />
+
+LazorKit is ideal when:
+
+- **Passkey-native UX is priority**: No emails, no OAuth—just biometrics
+- **Solana-only**: Purpose-built for Solana, not a multi-chain afterthought
+- **Gas sponsorship is essential**: Built-in paymaster with USDC fee payment
+- **Smart wallet features matter**: On-chain programmability, potential for policies and recovery
+- **Wallet Standard compliance**: Works with existing wallet adapter infrastructure
+
+Consider alternatives when:
+
+- **Multiple auth methods needed**: Privy offers email, phone, and social login
+- **Key portability is required**: Dynamic allows export to traditional wallets
+- **Multi-chain is the goal**: Para supports EVM and Cosmos alongside Solana
+- **Full infrastructure control**: Turnkey provides lower-level key management
+
+In the final lesson, we'll compare all providers side-by-side and help you choose the right solution for your specific use case.

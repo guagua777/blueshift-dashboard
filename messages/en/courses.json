@@ -16,7 +16,7 @@
       "description": "Master Anchor, the powerful Rust framework for Solana development, from basic setup to advanced patterns and deployment.",
       "lessons": {
         "anchor-101": "Anchor 101",
-        "anchor-accounts": "Anchor Accounts", 
+        "anchor-accounts": "Anchor Accounts",
         "anchor-instructions": "Anchor Instructions",
         "testing-your-program": "Testing your Program",
         "program-deployment": "Program Deployment",
@@ -245,6 +245,69 @@
         "surfpool-101": "Surfpool 101",
         "advanced-functionalities": "Advanced Functionalities",
         "conclusion": "Conclusion"
+      }
+    },
+    "mobile-wallet-adapter": {
+      "title": "Mobile dApp Fundamentals",
+      "description": "Your introduction to Solana mobile development. Build native dApps with the Mobile Wallet Adapter protocol, master wallet connections, and React Native integration.",
+      "lessons": {
+        "introduction": "Introduction",
+        "protocol-deep-dive": "Protocol Deep Dive",
+        "environment-setup": "Environment Setup",
+        "connecting-to-wallets": "Connecting to Wallets",
+        "signing-transactions": "Signing Transactions",
+        "signing-messages": "Signing Messages",
+        "authorization-provider": "Authorization Provider",
+        "error-handling": "Error Handling",
+        "testing-on-device": "Testing on Device",
+        "conclusion": "Conclusion"
+      }
+    },
+    "mwa-deep-dive": {
+      "title": "Mobile Wallet Adapter Deep Dive",
+      "description": "Master the MWA protocol internals. Learn ECDH key exchange, AES-GCM encryption, JSON-RPC methods, identity verification, and debugging techniques.",
+      "lessons": {
+        "architecture": "The MWA Architecture",
+        "transport-layer": "The Transport Layer",
+        "association": "Association",
+        "session-establishment": "Session Establishment",
+        "encrypted-messages": "The Encrypted Message Protocol",
+        "rpc-methods": "JSON-RPC Methods Reference",
+        "identity-verification": "Identity Verification",
+        "reflector-and-debugging": "Reflector Protocol & Debugging"
+      }
+    },
+    "embedded-wallets": {
+      "title": "Embedded Wallets - And UX",
+      "description": "Eliminate seed phrases with embedded wallets. Master Privy, Dynamic, LazorKit, and Para SDKs to build frictionless mobile authentication using passkeys, social login, and MPC.",
+      "lessons": {
+        "introduction": "Introduction",
+        "privy": "Privy: Flexible Authentication",
+        "dynamic": "Dynamic: MPC and Wallet-as-a-Service",
+        "lazorkit": "LazorKit: Passkey Smart Wallets",
+        "choosing-implementation": "Choosing and Implementing Your Solution"
+      }
+    },
+    "on-chain-operations": {
+      "title": "On-Chain Operations",
+      "description": "Master on-chain operations from mobile. RPC connections, SPL token transfers, NFT handling with DAS API, Blinks/Actions integration, and custom program interaction patterns.",
+      "lessons": {
+        "rpc-fundamentals": "RPC Fundamentals",
+        "token-operations": "Token Operations",
+        "nft-operations": "NFT Operations",
+        "blinks-and-actions": "Blinks and Actions",
+        "program-interaction": "Program Interaction"
+      }
+    },
+    "dapp-store-publishing": {
+      "title": "dApp Store Publishing and Best Practices",
+      "description": "Ship your Solana mobile app. Navigate the Solana dApp Store, Apple App Store, and Google Play. Master APK signing, test accounts for review, mobile security, and production operations.",
+      "lessons": {
+        "introduction": "Introduction to Distribution",
+        "solana-dapp-store": "Solana dApp Store Publishing",
+        "app-store-strategies": "App Store Review Strategies",
+        "mobile-security": "Mobile Security Essentials",
+        "production-best-practices": "Production Best Practices"
       }
     }
   }

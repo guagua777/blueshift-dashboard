@@ -1,0 +1,262 @@
+import { ArticleSection } from "../../../../components/ArticleSection/ArticleSection";
+
+# Embedded Wallets - And UX
+
+![Embedded Wallets](/graphics/course-banners/embedded-wallets.png)
+
+Seed phrases were a necessary evil. For a decade, we've asked users to write down 12 or 24 random words, store them safely, and never lose them. The crypto-native accepted this as the cost of self-custody. Everyone else walked away.
+
+Embedded wallets eliminate seed phrases entirely. Users authenticate with biometrics, email, or social login—patterns they already use for every other app. The wallet exists inside your app, invisible to the user, secured by cryptographic techniques that don't require them to understand cryptography.
+
+> An embedded wallet isn't a compromise on security. Modern MPC and passkey-based systems can be *more* secure than a seed phrase scribbled on paper and stuffed in a drawer.
+
+<ArticleSection name="The Problem with Traditional Wallets" id="the-problem-with-traditional-wallets" level="h2" />
+
+Ask anyone who's onboarded non-crypto users to a Web3 app. The conversation follows a predictable script:
+
+1. "Download this wallet app"
+2. "Write down these 24 words"
+3. "Never lose them or you lose everything"
+4. "Now let's connect it to our app"
+
+By step 2, you've lost 80% of potential users. By step 3, they're questioning their life choices.
+
+Traditional wallets were designed for a different era—when crypto meant Bitcoin, users were technically sophisticated, and "decentralization at all costs" was the only philosophy. Mobile Wallet Adapter (MWA) improves the connection experience but still requires users to manage external wallet apps.
+
+For most mobile experiences, this friction is unacceptable. Users expect to open an app and start using it within seconds, not configure external dependencies first.
+
+### The UX hierarchy
+
+Consider what users actually want from a wallet:
+
+1. **Sign things when needed**: Execute transactions, prove ownership
+2. **Not think about it**: The wallet should be infrastructure, not interface
+3. **Recover access if something breaks**: Without catastrophic loss
+
+Traditional wallets invert this hierarchy. They make the wallet the central experience, demand constant attention, and punish any mistake with permanent fund loss.
+
+<ArticleSection name="What is an Embedded Wallet?" id="what-is-an-embedded-wallet" level="h2" />
+
+An embedded wallet is a cryptographic key pair managed programmatically by a service or SDK, authenticated through familiar methods like email, social login, or biometrics. The private key is either:
+
+- **Split across multiple parties** using MPC (Multi-Party Computation)
+- **Stored in hardware security modules** (passkeys via device secure enclave)
+- **Derived from recoverable factors** the user already controls
+
+From the user's perspective, they log in with their phone's FaceID or their Google account. Behind the scenes, this authentication grants access to sign transactions with a Solana keypair.
+
+### Key advantages
+
+- **Zero onboarding friction**: Users authenticate with patterns they already know
+- **No seed phrase liability**: Nothing to write down, nothing to lose
+- **Embedded UX**: The wallet lives inside your app, not as an external dependency
+- **Programmable recovery**: Social recovery, backup factors, or institutional custody options
+
+<ArticleSection name="The Provider Landscape" id="the-provider-landscape" level="h2" />
+
+Several providers have emerged to solve embedded wallets differently. Each makes distinct tradeoffs between security architecture, developer experience, and cost.
+
+### Privy
+
+Privy provides embedded wallets that work alongside traditional wallet connections. Their approach uses secure enclaves and MPC to split keys between the user's device and Privy's infrastructure.
+
+```typescript
+import { usePrivy, useEmbeddedSolanaWallet } from '@privy-io/expo';
+
+function WalletComponent() {
+  const { login, authenticated } = usePrivy();
+  const { wallets } = useEmbeddedSolanaWallet();
+  
+  if (!authenticated) {
+    return <Button onPress={() => login({ loginMethod: 'email' })} />;
+  }
+  
+  // Wallet is ready to sign
+  const wallet = wallets[0];
+}
+```
+
+Privy supports email, phone, social login, and can also connect external wallets through MWA—giving you hybrid apps that serve both crypto-native and mainstream users.
+
+### Dynamic
+
+Dynamic uses Threshold Signature Schemes (TSS) with MPC. Their EdDSA FROST implementation is specifically optimized for Solana's Ed25519 curve, meaning signatures are native Solana signatures, not wrapped or adapted.
+
+```typescript
+import { createClient } from '@dynamic-labs/client';
+
+const client = createClient({
+  environmentId: 'your-environment-id',
+});
+
+// Embedded wallet creation happens automatically after auth
+await client.auth.social.connect({ provider: 'google' });
+
+// Create Solana wallet
+const wallet = await client.wallets.embedded.createWallet({ chain: 'SOL' });
+```
+
+Dynamic also provides Wallet-as-a-Service (WaaS) operations: users can backup their wallet share to Google Drive, export their full key, or import existing keys.
+
+### Turnkey
+
+Turnkey takes a different approach: they provide secure infrastructure for key management, leaving authentication choices to you. Keys live in Turnkey's secure enclaves, accessible via passkeys or API keys.
+
+```typescript
+import { Turnkey } from '@turnkey/sdk-react-native';
+import { PasskeyStamper } from '@turnkey/react-native-passkey-stamper';
+
+const stamper = new PasskeyStamper({
+  rpId: 'your.domain.com',
+});
+
+const turnkey = new Turnkey({
+  baseUrl: 'https://api.turnkey.com',
+  stamper,
+});
+
+// Create a sub-organization (user's isolated key environment)
+await turnkey.createSubOrganization({
+  subOrganizationName: 'User Wallet',
+  rootUsers: [{ authenticators: [passkeyAuthenticator] }],
+});
+```
+
+Turnkey's sub-organization model means each user gets their own isolated environment. Your app never touches private keys—Turnkey's enclaves handle all signing.
+
+### LazorKit
+
+LazorKit is purpose-built for Solana with passkey-native smart wallets. Unlike the others, LazorKit creates Program Derived Addresses (PDAs) controlled by WebAuthn credentials, making the wallet itself a smart contract.
+
+```typescript
+import { LazorKitProvider, useWallet } from '@lazorkit/wallet-mobile-adapter';
+
+function App() {
+  return (
+    <LazorKitProvider
+      rpcUrl="https://api.devnet.solana.com"
+      portalUrl="https://portal.lazor.sh"
+      configPaymaster={{ paymasterUrl: "https://kora.devnet.lazorkit.com" }}
+    >
+      <WalletScreen />
+    </LazorKitProvider>
+  );
+}
+
+function WalletScreen() {
+  const { connect, signAndSendTransaction, isConnected } = useWallet();
+  
+  // connect() triggers native biometric prompt
+  // No seed phrases, no external apps
+}
+```
+
+LazorKit includes a built-in paymaster for gas sponsorship, meaning users don't even need SOL to transact—you can pay their fees or let them pay in USDC.
+
+### Para (formerly Capsule)
+
+Para provides MPC-based wallets with native passkey support across React Native and Expo. Their SDK handles the complexity of secure key distribution while exposing a simple authentication flow.
+
+> **Critical**: The Para shim must be imported as the FIRST import in your entry file, and you must configure Metro for crypto polyfills.
+
+```typescript
+// index.js or app/_layout.tsx - MUST be first import
+import "@getpara/react-native-wallet/shim";
+
+// Then other imports
+import { ParaMobile, WalletType } from '@getpara/react-native-wallet';
+
+const para = new ParaMobile(YOUR_API_KEY, undefined, { disableWorkers: true });
+
+// Sign up or log in
+const authState = await para.signUpOrLogIn({ auth: { email } });
+
+if (authState?.stage === 'verify') {
+  // New user - verify email, then register passkey
+  const verifiedAuthState = await para.verifyNewAccount({ verificationCode });
+  await para.registerPasskey(verifiedAuthState);
+} else if (authState?.stage === 'login') {
+  // Existing user - passkey login
+  await para.loginWithPasskey();
+}
+
+// Create Solana wallet
+await para.createWallet({ type: WalletType.SOLANA, skipDistribute: false });
+```
+
+Para supports EVM, Solana, and Cosmos chains from the same SDK, making it ideal for multi-chain applications.
+
+<ArticleSection name="Choosing Your Architecture" id="choosing-your-architecture" level="h2" />
+
+The "best" embedded wallet depends on what you're building.
+
+### For mainstream consumer apps
+
+If your users have never used crypto, minimize everything crypto-related:
+
+- **LazorKit**: Passkey-only, gas sponsorship built in, Solana-native
+- **Privy**: Flexible auth methods, good mobile SDK, hybrid wallet support
+
+### For crypto-native users who want easier UX
+
+If users might already have wallets but want a smoother experience:
+
+- **Dynamic**: Strong wallet export/import, backup to Google Drive
+- **Privy**: Supports both embedded and MWA connections
+
+### For enterprise or high-security applications
+
+If you need maximum control over key infrastructure:
+
+- **Turnkey**: Bring your own auth, sub-organization isolation, policy engine
+- **Para**: MPC with granular security controls, multi-chain support
+
+### For Solana-specific applications
+
+If you're building exclusively on Solana and want native integration:
+
+- **LazorKit**: Smart wallet PDAs, native paymaster, Wallet Standard compatible
+- **Privy**: `@solana-mobile/wallet-standard-mobile` integration with MWA
+
+<ArticleSection name="L0STE's Philosophy: Wallet as Infrastructure" id="loste-philosophy" level="h2" />
+
+Here's a perspective worth considering from L0STE, a mobile developer who has worked across the Solana ecosystem:
+
+> "Most of the UX is read-only, so once you know what is the wallet of the user (and you can let them sign a message with deeplink) you don't need any wallet component inside. Just store the wallet address. Then if the user needs an action just send them to Phantom or Solflare."
+
+This isn't anti-embedded-wallet—it's a reminder that the best wallet UX might be *no wallet UX*. Consider:
+
+1. **Read-heavy apps**: Portfolio trackers, social apps, games where users mostly view
+2. **Occasional signers**: Apps where transactions are rare but valuable
+3. **Hybrid approaches**: Store address only, deeplink to external wallet for signing
+
+Embedded wallets shine when:
+- Signing is frequent (games, social tipping, DeFi)
+- Users are non-crypto-native (consumer apps)
+- You need gas sponsorship (onboarding flows)
+- Recovery must be seamless (no seed phrase backup)
+
+<ArticleSection name="Course Structure" id="course-structure" level="h2" />
+
+This course teaches you to implement embedded wallets in React Native with four major providers. By the end, you'll understand:
+
+| Lesson | Topic |
+|--------|-------|
+| 1 | Introduction (you are here) |
+| 2 | Privy: Flexible Authentication |
+| 3 | Dynamic: MPC and Wallet-as-a-Service |
+| 4 | LazorKit: Passkey Smart Wallets |
+| 5 | Choosing and Implementing Your Solution |
+
+Each lesson provides complete, runnable code—not fragments. You'll see the initialization, authentication, wallet creation, and transaction signing for each provider.
+
+### Prerequisites
+
+- Completed the Mobile Wallet Adapter course (or equivalent knowledge)
+- React Native development environment
+- Understanding of Solana transactions and accounts
+- A device with biometric capability (FaceID, TouchID, fingerprint)
+
+**Note:** Passkey functionality requires real device testing. Emulators do not have access to device secure enclaves.
+
+Let's start by understanding how Privy approaches embedded wallets and when it's the right choice.

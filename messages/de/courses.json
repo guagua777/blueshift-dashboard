@@ -226,6 +226,36 @@
         "advanced-functionalities": "Erweiterte Funktionalitäten",
         "conclusion": "Fazit"
       }
+    },
+    "mobile-wallet-adapter": {
+      "title": "Mobile Wallet Adapter",
+      "description": "Erstellen Sie native Solana Mobile-dApps mit dem Mobile Wallet Adapter Protokoll. Meistern Sie Wallet-Verbindungen, Transaktionssignaturen und React Native Integration.",
+      "lessons": {
+        "introduction": "Einführung",
+        "protocol-deep-dive": "Protokoll im Detail",
+        "environment-setup": "Umgebungseinrichtung",
+        "connecting-to-wallets": "Verbindung zu Wallets",
+        "signing-transactions": "Transaktionen signieren",
+        "signing-messages": "Nachrichten signieren",
+        "authorization-provider": "Authorization Provider",
+        "error-handling": "Fehlerbehandlung",
+        "testing-on-device": "Testen auf dem Gerät",
+        "conclusion": "Fazit"
+      }
+    },
+    "mwa-deep-dive": {
+      "title": "MWA Deep Dive",
+      "description": "Meistern Sie die Interna des Mobile Wallet Adapter Protokolls. Lernen Sie ECDH-Schlüsselaustausch, AES-GCM-Verschlüsselung, JSON-RPC-Methoden, Identitätsverifizierung und Debugging-Techniken.",
+      "lessons": {
+        "architecture": "Die MWA-Architektur",
+        "transport-layer": "Die Transportschicht",
+        "association": "Assoziation",
+        "session-establishment": "Sitzungsaufbau",
+        "encrypted-messages": "Das verschlüsselte Nachrichtenprotokoll",
+        "rpc-methods": "JSON-RPC-Methodenreferenz",
+        "identity-verification": "Identitätsverifizierung",
+        "reflector-and-debugging": "Reflector-Protokoll & Debugging"
+      }
     }
   }
 }
