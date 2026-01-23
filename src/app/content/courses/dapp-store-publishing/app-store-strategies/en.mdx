@@ -116,27 +116,11 @@ For apps that connect to external wallets (via MWA on Android or WalletConnect):
 - Seed phrase could be compromised (use burner wallet with minimal funds)
 - Multiple reviewers might conflict with each other
 
-### What to put in App Review Notes
+### The key principle
 
-When submitting to App Store Connect, the "Notes for Review" field is crucial:
+Whichever approach you choose, the goal is the same: **make your entire app testable without requiring the reviewer to understand crypto**. Every screen, every flow, every feature should be accessible through your test account or demo mode.
 
-```
-DEMO ACCOUNT:
-Email: test-review@privy.io
-Password/OTP: XXXXXX
-
-TESTING INSTRUCTIONS:
-1. Open app and tap "Get Started"
-2. Enter demo email above
-3. Enter verification code XXXXXX
-4. App will create a Solana wallet for testing
-5. Tap "Receive" to see wallet address
-6. Tap "Send" to see transaction flow (no real funds needed for demo)
-
-Note: This app allows users to create self-custody Solana wallets. 
-No real cryptocurrency is required for review. The demo account 
-provides full functionality testing.
-```
+In your App Review Notes, provide clear step-by-step instructions for testing each major feature. Assume the reviewer has never used a crypto app before.
 
 <ArticleSection name="Google Play: Different Challenges" id="google-play-different-challenges" level="h2" />
 
@@ -247,34 +231,7 @@ Reviewers often reject because they don't understand. Your appeal should:
 3. Provide clear testing steps
 4. Offer to get on a call if needed (Apple offers this for complex cases)
 
-### Sample appeal template
-
-```
-Thank you for your review feedback.
-
-I'd like to clarify how [App Name] addresses guideline 3.1.5:
-
-1. ORGANIZATION ENROLLMENT: We are enrolled as [Company Name], 
-   D-U-N-S number [NUMBER].
-
-2. WALLET FUNCTIONALITY: Our app provides self-custody wallet 
-   functionality, allowing users to manage their own Solana tokens. 
-   We do not take custody of user funds at any point.
-
-3. TEST ACCOUNT: To test the app without requiring cryptocurrency, 
-   please use:
-   - Email: test-review@privy.io
-   - Verification code: XXXXXX
-   
-   This will create a fully functional test wallet.
-
-4. NO IN-APP PURCHASES REQUIRED: Users can use the app's core 
-   functionality without any purchases. Optional NFT purchases 
-   use user's own cryptocurrency, not Apple payment systems.
-
-Please let me know if you need any additional information or 
-would like to schedule a call to discuss.
-```
+Be specific to your app and the exact rejection reason. Generic appeals don't work.
 
 ### When to pivot
 
@@ -284,30 +241,6 @@ Sometimes a feature just won't get approved. Consider:
 - Using deep links to push users to web for certain features
 
 Many successful apps have a "lite" App Store version and full version on dApp Store or as a PWA.
-
-<ArticleSection name="Regional Strategies" id="regional-strategies" level="h2" />
-
-Not all App Store regions have the same scrutiny.
-
-### High-scrutiny regions
-- United States
-- European Union
-- United Kingdom
-- Japan
-
-### Moderate-scrutiny regions
-- Canada
-- Australia
-- Singapore
-- Hong Kong
-
-### Consider a phased rollout
-
-1. Submit to a moderate-scrutiny region first
-2. Build a track record of compliant operation
-3. Expand to high-scrutiny regions with that history
-
-This isn't about dodging rules; it's about building evidence that your app operates responsibly.
 
 <ArticleSection name="Keeping Your App Listed" id="keeping-your-app-listed" level="h2" />
 

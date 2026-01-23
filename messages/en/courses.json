@@ -292,6 +292,7 @@
       "title": "On-Chain Operations",
       "description": "Master on-chain operations from mobile. RPC connections, SPL token transfers, NFT handling with DAS API, Blinks/Actions integration, and custom program interaction patterns.",
       "lessons": {
+        "introduction": "Introduction",
         "rpc-fundamentals": "RPC Fundamentals",
         "token-operations": "Token Operations",
         "nft-operations": "NFT Operations",
