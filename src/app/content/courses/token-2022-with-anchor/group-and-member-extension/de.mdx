@@ -4,9 +4,14 @@ import { ArticleSection } from "../../../../components/ArticleSection/ArticleSec
 
 Die `Group` und `Member` Erweiterungen sind `Mint` Konto-Erweiterungen, die die Möglichkeit bieten, Gruppen zu erstellen, ähnlich wie Sammlungen für NFTs, die mit mehreren Assets verknüpft sind.
 
-<ArticleSection name="Initialisierung des Mint-Kontos" id="initializing-the-mint-account" level="h2" />
+<ArticleSection
+  name="Initialisierung des Mint-Kontos"
+  id="initializing-the-mint-account"
+  level="h2"
+/>
 
 Die `Member` und `Group` Erweiterung unterscheiden sich etwas von dem, was wir gewohnt sind, da sie aus 2 verschiedenen Erweiterungen bestehen, die beide auf ein `Mint` Konto angewendet werden:
+
 - Die `Extension`, die alle Informationen über die Gruppe oder das Mitglied enthält.
 - Die `Pointer Extension`, die auf das `Mint` Konto verweist, auf dem die `Group` oder `Member` Erweiterung existiert.
 
@@ -36,11 +41,13 @@ Im Code zur Initialisierung des `Group` sieht es so aus:
 use anchor_lang::prelude::*;
 use anchor_spl::token_2022::spl_token_2022::extension::group_pointer::GroupPointer;
 use anchor_spl::token_interface::token_group_initialize, Mint, Token2022, TokenGroupInitialize;
-use spl_token_group_interface::state::TokenGroup;
+use anchor_spl::token_2022::spl_token_2022::extension::{BaseStateWithExtensions, ExtensionType};
 
 pub fn initialize_group(ctx: Context<InitializeGroup>) -> Result<()> {
     // Add 4 extra bytes for size of MetadataExtension (2 bytes for the discriminator, 2 bytes for length)
-    let data_len = 4 + size_of::<TokenGroup>();?;
+    let token_group_size =
+        ExtensionType::try_calculate_account_len::<PodMint>(&[ExtensionType::TokenGroup])?;
+    let data_len = 4 + token_group_size?;
 
     // Calculate lamports required for the additional metadata
     let lamports =
@@ -100,12 +107,15 @@ Und danach können wir die Gruppe, die wir gerade erstellt haben, verwenden, um 
 ```rust
 use anchor_lang::prelude::*;
 use anchor_spl::token_2022::spl_token_2022::extension::group_pointer::GroupPointer;
-use anchor_spl::token_interface::token_group_member_initialize, Mint, Token2022, TokenGroupMemberInitialize;
-use spl_token_group_interface::state::TokenGroupMember;
+use anchor_spl::token_interface::{
+    self, token_member_initialize, TokenAccount, TokenMemberInitialize,
+};
 
 pub fn initialize_member(ctx: Context<InitializeMember>) -> Result<()> {
     // Add 4 extra bytes for size of MetadataExtension (2 bytes for the discriminator, 2 bytes for length)
-    let data_len = 4 + size_of::<TokenGroupMember>();?;
+    let token_group_len =
+        ExtensionType::try_calculate_account_len::<PodMint>(&[ExtensionType::TokenGroupMember])?;
+    let data_len = 4 + token_group_len?;
 
     // Calculate lamports required for the additional metadata
     let lamports =
@@ -124,16 +134,16 @@ pub fn initialize_member(ctx: Context<InitializeMember>) -> Result<()> {
     )?;
 
     // Initialize the token group extension
-    token_group_member_initialize(
+    token_member_initialize(
         CpiContext::new(
             ctx.accounts.token_program.to_account_info(),
-            TokenGroupMemberInitialize {
+            TokenMemberInitialize {
                 token_program_id: ctx.accounts.token_program.to_account_info(),
                 group: ctx.accounts.group.to_account_info(),
                 group_update_authority: ctx.accounts.payer.to_account_info(),
                 member: ctx.accounts.mint_account.to_account_info(),
                 member_mint: ctx.accounts.mint_account.to_account_info(),
-                member_mint_authority: ctx.accounts.mint_account.to_account_info(),
+                member_mint_authority: ctx.accounts.payer.to_account_info(),
             },
         )
     )?;
@@ -162,34 +172,38 @@ pub struct InitializeMember<'info> {
 }
 ```
 
-<ArticleSection name="Aktualisierung der maxSize für Gruppen" id="updating-the-max-size-for-groups" level="h2" />
+<ArticleSection
+  name="Aktualisierung der maxSize für Gruppen"
+  id="updating-the-max-size-for-groups"
+  level="h2"
+/>
 
 Wie Sie sehen können, haben wir bei der Erstellung der Gruppe ein `maxSize`-Feld zugewiesen, das die maximale Anzahl von `Member` begrenzt, die wir in dieser spezifischen Gruppe haben können.
 
 Wenn wir unsere Meinung ändern und immer noch die `updateAuthority` der Gruppe haben, können wir die `updateGroupMaxSize()`-Anweisung verwenden, um diese Zahl zu verringern oder zu erhöhen, wie folgt:
 
 ```ts
-const updateGroupMaxSizeInstructions = createUpdateGroupMaxSizeInstruction(
-    {
-        programId: TOKEN_2022_PROGRAM_ID,
-        group: mint.publicKey,
-        updateAuthority: keypair.publicKey,
-        maxSize: BigInt(100),
-    }
-);
+const updateGroupMaxSizeInstructions = createUpdateGroupMaxSizeInstruction({
+  programId: TOKEN_2022_PROGRAM_ID,
+  group: mint.publicKey,
+  updateAuthority: keypair.publicKey,
+  maxSize: BigInt(100),
+});
 ```
 
-<ArticleSection name="Aktualisierung der updateAuthority für Gruppen" id="updating-the-update-authority-for-groups" level="h2" />
+<ArticleSection
+  name="Aktualisierung der updateAuthority für Gruppen"
+  id="updating-the-update-authority-for-groups"
+  level="h2"
+/>
 
 Wenn wir die `UpdateAuthority` ändern oder sie unveränderlich machen wollen, um zu verhindern, dass jemand weitere `Member` hinzufügt, können wir die `updateGroupAuthority()`-Anweisung wie folgt verwenden:
 
 ```ts
-const updateGroupAuthorityInstructions = createUpdateGroupAuthorityInstruction(
-    {
-        programId: TOKEN_2022_PROGRAM_ID,
-        group: mint.publicKey,
-        currentAuthority: keypair.publicKey,
-        newAuthority: null,
-    }
-);
+const updateGroupAuthorityInstructions = createUpdateGroupAuthorityInstruction({
+  programId: TOKEN_2022_PROGRAM_ID,
+  group: mint.publicKey,
+  currentAuthority: keypair.publicKey,
+  newAuthority: null,
+});
 ```

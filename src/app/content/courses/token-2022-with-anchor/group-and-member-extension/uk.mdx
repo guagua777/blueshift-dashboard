@@ -4,9 +4,14 @@ import { ArticleSection } from "../../../../components/ArticleSection/ArticleSec
 
 Розширення `Group` та `Member` є розширеннями облікового запису `Mint`, які впроваджують можливість створювати групи, подібні до колекцій для NFT, що пов'язані з кількома активами.
 
-<ArticleSection name="Initializing the Mint Account" id="initializing-the-mint-account" level="h2" />
+<ArticleSection
+  name="Initializing the Mint Account"
+  id="initializing-the-mint-account"
+  level="h2"
+/>
 
 Розширення `Member` та `Group` дещо відрізняються від того, до чого ми звикли, оскільки вони складаються з 2 різних розширень, які обидва розміщуються на обліковому записі `Mint`:
+
 - `Extension`, що містить усю інформацію про групу або учасника.
 - `Pointer Extension`, що посилається на обліковий запис `Mint`, де розміщується розширення `Group` або `Member`.
 
@@ -36,11 +41,14 @@ cargo add spl_token_metadata_interface
 use anchor_lang::prelude::*;
 use anchor_spl::token_2022::spl_token_2022::extension::group_pointer::GroupPointer;
 use anchor_spl::token_interface::token_group_initialize, Mint, Token2022, TokenGroupInitialize;
-use spl_token_group_interface::state::TokenGroup;
+use anchor_spl::token_2022::spl_token_2022::extension::{BaseStateWithExtensions, ExtensionType};
+
 
 pub fn initialize_group(ctx: Context<InitializeGroup>) -> Result<()> {
     // Add 4 extra bytes for size of MetadataExtension (2 bytes for the discriminator, 2 bytes for length)
-    let data_len = 4 + size_of::<TokenGroup>();?;
+    let token_group_size =
+        ExtensionType::try_calculate_account_len::<PodMint>(&[ExtensionType::TokenGroup])?;
+    let data_len = 4 + token_group_size?;
 
     // Calculate lamports required for the additional metadata
     let lamports =
@@ -100,12 +108,15 @@ pub struct InitializeGroup<'info> {
 ```rust
 use anchor_lang::prelude::*;
 use anchor_spl::token_2022::spl_token_2022::extension::group_pointer::GroupPointer;
-use anchor_spl::token_interface::token_group_member_initialize, Mint, Token2022, TokenGroupMemberInitialize;
-use spl_token_group_interface::state::TokenGroupMember;
+use anchor_spl::token_interface::{
+    self, token_member_initialize, TokenAccount, TokenMemberInitialize,
+};
 
 pub fn initialize_member(ctx: Context<InitializeMember>) -> Result<()> {
     // Add 4 extra bytes for size of MetadataExtension (2 bytes for the discriminator, 2 bytes for length)
-    let data_len = 4 + size_of::<TokenGroupMember>();?;
+    let token_group_len =
+        ExtensionType::try_calculate_account_len::<PodMint>(&[ExtensionType::TokenGroupMember])?;
+    let data_len = 4 + token_group_len?;
 
     // Calculate lamports required for the additional metadata
     let lamports =
@@ -124,16 +135,16 @@ pub fn initialize_member(ctx: Context<InitializeMember>) -> Result<()> {
     )?;
 
     // Initialize the token group extension
-    token_group_member_initialize(
+    token_member_initialize(
         CpiContext::new(
             ctx.accounts.token_program.to_account_info(),
-            TokenGroupMemberInitialize {
+            TokenMemberInitialize {
                 token_program_id: ctx.accounts.token_program.to_account_info(),
                 group: ctx.accounts.group.to_account_info(),
                 group_update_authority: ctx.accounts.payer.to_account_info(),
                 member: ctx.accounts.mint_account.to_account_info(),
                 member_mint: ctx.accounts.mint_account.to_account_info(),
-                member_mint_authority: ctx.accounts.mint_account.to_account_info(),
+                member_mint_authority: ctx.accounts.payer.to_account_info(),
             },
         )
     )?;
@@ -162,34 +173,38 @@ pub struct InitializeMember<'info> {
 }
 ```
 
-<ArticleSection name="Оновлення maxSize для груп" id="updating-the-max-size-for-groups" level="h2" />
+<ArticleSection
+  name="Оновлення maxSize для груп"
+  id="updating-the-max-size-for-groups"
+  level="h2"
+/>
 
 Як бачите, коли ми створювали групу, ми виділили поле `maxSize`, яке обмежує максимальну кількість `Member`, які можуть бути в цій конкретній групі.
 
 Якщо ми змінимо думку, і у нас все ще є `updateAuthority` групи, ми можемо використати інструкцію `updateGroupMaxSize()`, щоб зменшити або збільшити це число таким чином:
 
 ```ts
-const updateGroupMaxSizeInstructions = createUpdateGroupMaxSizeInstruction(
-    {
-        programId: TOKEN_2022_PROGRAM_ID,
-        group: mint.publicKey,
-        updateAuthority: keypair.publicKey,
-        maxSize: BigInt(100),
-    }
-);
+const updateGroupMaxSizeInstructions = createUpdateGroupMaxSizeInstruction({
+  programId: TOKEN_2022_PROGRAM_ID,
+  group: mint.publicKey,
+  updateAuthority: keypair.publicKey,
+  maxSize: BigInt(100),
+});
 ```
 
-<ArticleSection name="Оновлення updateAuthority для груп" id="updating-the-update-authority-for-groups" level="h2" />
+<ArticleSection
+  name="Оновлення updateAuthority для груп"
+  id="updating-the-update-authority-for-groups"
+  level="h2"
+/>
 
 Якщо ми хочемо змінити `UpdateAuthority` або зробити його незмінним, щоб ніхто не міг додавати більше `Member` до нього, ми можемо використати інструкцію `updateGroupAuthority()` таким чином:
 
 ```ts
-const updateGroupAuthorityInstructions = createUpdateGroupAuthorityInstruction(
-    {
-        programId: TOKEN_2022_PROGRAM_ID,
-        group: mint.publicKey,
-        currentAuthority: keypair.publicKey,
-        newAuthority: null,
-    }
-);
+const updateGroupAuthorityInstructions = createUpdateGroupAuthorityInstruction({
+  programId: TOKEN_2022_PROGRAM_ID,
+  group: mint.publicKey,
+  currentAuthority: keypair.publicKey,
+  newAuthority: null,
+});
 ```

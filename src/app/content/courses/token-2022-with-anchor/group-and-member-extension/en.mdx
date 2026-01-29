@@ -4,9 +4,14 @@ import { ArticleSection } from "../../../../components/ArticleSection/ArticleSec
 
 The `Group` and `Member` extensions are `Mint` account extensions that introduce the ability to create groups, like collections for NFTs, that are linked with multiple assets.
 
-<ArticleSection name="Initializing the Mint Account" id="initializing-the-mint-account" level="h2" />
+<ArticleSection
+  name="Initializing the Mint Account"
+  id="initializing-the-mint-account"
+  level="h2"
+/>
 
 The `Member` and `Group` extension are a little different from what we're used to doing because it's composed of 2 different extensions that both go on a `Mint` account:
+
 - The `Extension` that contains all the information about the group or member.
 - The `Pointer Extension` that references the `Mint` account where the `Group` or `Member` extension lives.
 
@@ -24,7 +29,7 @@ So let's install the required package:
 cargo add spl_token_metadata_interface
 ```
 
-Additionally, the `Group` and `Member` extension is one of the "only" extensions that requires you to initialize the extension after having initialized the `Mint` account. 
+Additionally, the `Group` and `Member` extension is one of the "only" extensions that requires you to initialize the extension after having initialized the `Mint` account.
 
 This is because the metadata initialization instruction dynamically allocates the required space for the length of the group and member content.
 
@@ -36,12 +41,14 @@ In the code initializing the `Group` looks like this:
 use anchor_lang::prelude::*;
 use anchor_spl::token_2022::spl_token_2022::extension::group_pointer::GroupPointer;
 use anchor_spl::token_interface::token_group_initialize, Mint, Token2022, TokenGroupInitialize;
-use spl_token_group_interface::state::TokenGroup;
+use anchor_spl::token_2022::spl_token_2022::extension::{BaseStateWithExtensions, ExtensionType};
 
 
 pub fn initialize_group(ctx: Context<InitializeGroup>) -> Result<()> {
     // Add 4 extra bytes for size of MetadataExtension (2 bytes for the discriminator, 2 bytes for length)
-    let data_len = 4 + size_of::<TokenGroup>();?;
+    let token_group_size =
+        ExtensionType::try_calculate_account_len::<PodMint>(&[ExtensionType::TokenGroup])?;
+    let data_len = 4 + token_group_size?;
 
     // Calculate lamports required for the additional metadata
     let lamports =
@@ -101,13 +108,15 @@ And after this, we can use the group that we just created to add a member to it 
 ```rust
 use anchor_lang::prelude::*;
 use anchor_spl::token_2022::spl_token_2022::extension::group_pointer::GroupPointer;
-use anchor_spl::token_interface::token_group_member_initialize, Mint, Token2022, TokenGroupMemberInitialize;
-use spl_token_group_interface::state::TokenGroupMember;
-
+use anchor_spl::token_interface::{
+    self, token_member_initialize, TokenAccount, TokenMemberInitialize,
+};
 
 pub fn initialize_member(ctx: Context<InitializeMember>) -> Result<()> {
     // Add 4 extra bytes for size of MetadataExtension (2 bytes for the discriminator, 2 bytes for length)
-    let data_len = 4 + size_of::<TokenGroupMember>();?;
+    let token_group_len =
+        ExtensionType::try_calculate_account_len::<PodMint>(&[ExtensionType::TokenGroupMember])?;
+    let data_len = 4 + token_group_len?;
 
     // Calculate lamports required for the additional metadata
     let lamports =
@@ -126,16 +135,16 @@ pub fn initialize_member(ctx: Context<InitializeMember>) -> Result<()> {
     )?;
 
     // Initialize the token group extension
-    token_group_member_initialize(
+    token_member_initialize(
         CpiContext::new(
             ctx.accounts.token_program.to_account_info(),
-            TokenGroupMemberInitialize {
+            TokenMemberInitialize {
                 token_program_id: ctx.accounts.token_program.to_account_info(),
                 group: ctx.accounts.group.to_account_info(),
                 group_update_authority: ctx.accounts.payer.to_account_info(),
                 member: ctx.accounts.mint_account.to_account_info(),
                 member_mint: ctx.accounts.mint_account.to_account_info(),
-                member_mint_authority: ctx.accounts.mint_account.to_account_info(),
+                member_mint_authority: ctx.accounts.payer.to_account_info(),
             },
         )
     )?;
@@ -164,34 +173,38 @@ pub struct InitializeMember<'info> {
 }
 ```
 
-<ArticleSection name="Updating the maxSize for Groups" id="updating-the-max-size-for-groups" level="h2" />
+<ArticleSection
+  name="Updating the maxSize for Groups"
+  id="updating-the-max-size-for-groups"
+  level="h2"
+/>
 
 As you can see, when we created the group, we allocated a `maxSize` field that will limit the maximum amount of `Member` that we can have in that specific group.
 
 If we change idea, and we still have the `updateAuthority` of the group, we can use the `updateGroupMaxSize()` instruction to shrink or increase that number like so:
 
 ```ts
-const updateGroupMaxSizeInstructions = createUpdateGroupMaxSizeInstruction(
-    {
-        programId: TOKEN_2022_PROGRAM_ID,
-        group: mint.publicKey,
-        updateAuthority: keypair.publicKey,
-        maxSize: BigInt(100),
-    }
-);
+const updateGroupMaxSizeInstructions = createUpdateGroupMaxSizeInstruction({
+  programId: TOKEN_2022_PROGRAM_ID,
+  group: mint.publicKey,
+  updateAuthority: keypair.publicKey,
+  maxSize: BigInt(100),
+});
 ```
 
-<ArticleSection name="Updating the updateAuthority for Groups" id="updating-the-update-authority-for-groups" level="h2" />
+<ArticleSection
+  name="Updating the updateAuthority for Groups"
+  id="updating-the-update-authority-for-groups"
+  level="h2"
+/>
 
 If we want to change the `UpdateAuthority` or make it immutable in order to not let anyone add any more `Member` to it, we can use the `updateGroupAuthority()` instruction like so:
 
 ```ts
-const updateGroupAuthorityInstructions = createUpdateGroupAuthorityInstruction(
-    {
-        programId: TOKEN_2022_PROGRAM_ID,
-        group: mint.publicKey,
-        currentAuthority: keypair.publicKey,
-        newAuthority: null,
-    }
-);
+const updateGroupAuthorityInstructions = createUpdateGroupAuthorityInstruction({
+  programId: TOKEN_2022_PROGRAM_ID,
+  group: mint.publicKey,
+  currentAuthority: keypair.publicKey,
+  newAuthority: null,
+});
 ```

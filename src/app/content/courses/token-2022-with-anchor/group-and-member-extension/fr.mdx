@@ -4,9 +4,14 @@ import { ArticleSection } from "../../../../components/ArticleSection/ArticleSec
 
 Les extensions `Group` (groupe) et `Member` (membre) sont des extension de compte de `Mint` qui introduisent la possibilité de créer des groupes, comme des collections pour les NFT, qui sont liés à plusieurs actifs.
 
-<ArticleSection name="Initialisation du Compte de Mint" id="initializing-the-mint-account" level="h2" />
+<ArticleSection
+  name="Initialisation du Compte de Mint"
+  id="initializing-the-mint-account"
+  level="h2"
+/>
 
 Les extensions `Member` et `Group` sont un peu différents de ce que nous sommes habitués car ils sont composés de deux extensions différentes qui s'appliquent toutes deux à un compte de `Mint` :
+
 - L'`Extension` qui contient toutes les informations sur le groupe ou le membre.
 - Le `Pointer Extension` (extension pointeur) qui fait référence au compte de `Mint` où se trouvent les `Group` ou `Member`.
 
@@ -24,7 +29,7 @@ Installons donc la crate nécessaire :
 cargo add spl_token_metadata_interface
 ```
 
-De plus, l'extension `Group` et `Member` est l'une des "seules" extensions qui nécessite d'initialiser l'extension après avoir initialisé le compte de `Mint`. 
+De plus, l'extension `Group` et `Member` est l'une des "seules" extensions qui nécessite d'initialiser l'extension après avoir initialisé le compte de `Mint`.
 
 Cela s'explique par le fait que l'instruction d'initialisation des métadonnées alloue de manière dynamique l'espace nécessaire pour la taille du groupe et le contenu des membres.
 
@@ -36,11 +41,13 @@ L'initialisation de `Group` ressemble à ceci :
 use anchor_lang::prelude::*;
 use anchor_spl::token_2022::spl_token_2022::extension::group_pointer::GroupPointer;
 use anchor_spl::token_interface::token_group_initialize, Mint, Token2022, TokenGroupInitialize;
-use spl_token_group_interface::state::TokenGroup;
+use anchor_spl::token_2022::spl_token_2022::extension::{BaseStateWithExtensions, ExtensionType};
 
 pub fn initialize_group(ctx: Context<InitializeGroup>) -> Result<()> {
-    // Add 4 extra bytes for size of MetadataExtension (2 bytes for the discriminator, 2 bytes for length)
-    let data_len = 4 + size_of::<TokenGroup>();?;
+   // Add 4 extra bytes for size of MetadataExtension (2 bytes for the discriminator, 2 bytes for length)
+    let token_group_size =
+        ExtensionType::try_calculate_account_len::<PodMint>(&[ExtensionType::TokenGroup])?;
+    let data_len = 4 + token_group_size?;
 
     // Calculate lamports required for the additional metadata
     let lamports =
@@ -100,12 +107,15 @@ Et après cela, nous pouvons utiliser le groupe que nous venons de créer pour y
 ```rust
 use anchor_lang::prelude::*;
 use anchor_spl::token_2022::spl_token_2022::extension::group_pointer::GroupPointer;
-use anchor_spl::token_interface::token_group_member_initialize, Mint, Token2022, TokenGroupMemberInitialize;
-use spl_token_group_interface::state::TokenGroupMember;
+use anchor_spl::token_interface::{
+    self, token_member_initialize, TokenAccount, TokenMemberInitialize,
+};
 
 pub fn initialize_member(ctx: Context<InitializeMember>) -> Result<()> {
     // Add 4 extra bytes for size of MetadataExtension (2 bytes for the discriminator, 2 bytes for length)
-    let data_len = 4 + size_of::<TokenGroupMember>();?;
+    let token_group_len =
+        ExtensionType::try_calculate_account_len::<PodMint>(&[ExtensionType::TokenGroupMember])?;
+    let data_len = 4 + token_group_len?;
 
     // Calculate lamports required for the additional metadata
     let lamports =
@@ -124,16 +134,16 @@ pub fn initialize_member(ctx: Context<InitializeMember>) -> Result<()> {
     )?;
 
     // Initialize the token group extension
-    token_group_member_initialize(
+    token_member_initialize(
         CpiContext::new(
             ctx.accounts.token_program.to_account_info(),
-            TokenGroupMemberInitialize {
+            TokenMemberInitialize {
                 token_program_id: ctx.accounts.token_program.to_account_info(),
                 group: ctx.accounts.group.to_account_info(),
                 group_update_authority: ctx.accounts.payer.to_account_info(),
                 member: ctx.accounts.mint_account.to_account_info(),
                 member_mint: ctx.accounts.mint_account.to_account_info(),
-                member_mint_authority: ctx.accounts.mint_account.to_account_info(),
+                member_mint_authority: ctx.accounts.payer.to_account_info(),
             },
         )
     )?;
@@ -162,34 +172,38 @@ pub struct InitializeMember<'info> {
 }
 ```
 
-<ArticleSection name="Mise à jour du maxSize pour les Groupes" id="updating-the-max-size-for-groups" level="h2" />
+<ArticleSection
+  name="Mise à jour du maxSize pour les Groupes"
+  id="updating-the-max-size-for-groups"
+  level="h2"
+/>
 
 Comme vous pouvez le voir, lorsque nous avons créé le groupe, nous avons attribué un champ `maxSize` qui limitera le nombre maximal de `Member` que nous pouvons avoir dans ce groupe en particulier.
 
 Si nous changeons d'avis et que nous disposons toujours l'`updateAuthority` du groupe, nous pouvons utiliser l'instruction `updateGroupMaxSize()` pour réduire ou augmenter ce nombre comme ceci :
 
 ```ts
-const updateGroupMaxSizeInstructions = createUpdateGroupMaxSizeInstruction(
-    {
-        programId: TOKEN_2022_PROGRAM_ID,
-        group: mint.publicKey,
-        updateAuthority: keypair.publicKey,
-        maxSize: BigInt(100),
-    }
-);
+const updateGroupMaxSizeInstructions = createUpdateGroupMaxSizeInstruction({
+  programId: TOKEN_2022_PROGRAM_ID,
+  group: mint.publicKey,
+  updateAuthority: keypair.publicKey,
+  maxSize: BigInt(100),
+});
 ```
 
-<ArticleSection name="Mise à jour de l'updateAuthority pour les Groupes" id="updating-the-update-authority-for-groups" level="h2" />
+<ArticleSection
+  name="Mise à jour de l'updateAuthority pour les Groupes"
+  id="updating-the-update-authority-for-groups"
+  level="h2"
+/>
 
-Si nous voulons modifier l'`UpdateAuthority` ou la rendre immuable afin que personne ne puisse y ajouter d'autre `Member` nous pouvons utiliser l'instruction  `updateGroupAuthority()` comme ceci :
+Si nous voulons modifier l'`UpdateAuthority` ou la rendre immuable afin que personne ne puisse y ajouter d'autre `Member` nous pouvons utiliser l'instruction `updateGroupAuthority()` comme ceci :
 
 ```ts
-const updateGroupAuthorityInstructions = createUpdateGroupAuthorityInstruction(
-    {
-        programId: TOKEN_2022_PROGRAM_ID,
-        group: mint.publicKey,
-        currentAuthority: keypair.publicKey,
-        newAuthority: null,
-    }
-);
+const updateGroupAuthorityInstructions = createUpdateGroupAuthorityInstruction({
+  programId: TOKEN_2022_PROGRAM_ID,
+  group: mint.publicKey,
+  currentAuthority: keypair.publicKey,
+  newAuthority: null,
+});
 ```
