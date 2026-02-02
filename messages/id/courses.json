@@ -226,6 +226,36 @@
         "advanced-functionalities": "Fitur Lanjutan",
         "conclusion": "Kesimpulan"
       }
+    },
+    "mobile-dapp-fundamentals": {
+      "title": "Mobile Wallet Adapter",
+      "description": "Bangun dApps Solana mobile native dengan protokol Mobile Wallet Adapter. Kuasai koneksi wallet, penandatanganan transaksi, dan integrasi React Native.",
+      "lessons": {
+        "introduction": "Pendahuluan",
+        "protocol-deep-dive": "Protokol Secara Mendalam",
+        "environment-setup": "Pengaturan Lingkungan",
+        "connecting-to-wallets": "Menghubungkan ke Wallet",
+        "signing-transactions": "Menandatangani Transaksi",
+        "signing-messages": "Menandatangani Pesan",
+        "authorization-provider": "Authorization Provider",
+        "error-handling": "Penanganan Kesalahan",
+        "testing-on-device": "Pengujian di Perangkat",
+        "conclusion": "Kesimpulan"
+      }
+    },
+    "mwa-deep-dive": {
+      "title": "MWA Deep Dive",
+      "description": "Kuasai internal protokol Mobile Wallet Adapter. Pelajari pertukaran kunci ECDH, enkripsi AES-GCM, metode JSON-RPC, verifikasi identitas, dan teknik debugging.",
+      "lessons": {
+        "architecture": "Arsitektur MWA",
+        "transport-layer": "Lapisan Transport",
+        "association": "Asosiasi",
+        "session-establishment": "Pembentukan Sesi",
+        "encrypted-messages": "Protokol Pesan Terenkripsi",
+        "rpc-methods": "Referensi Metode JSON-RPC",
+        "identity-verification": "Verifikasi Identitas",
+        "reflector-and-debugging": "Protokol Reflector & Debugging"
+      }
     }
   }
 }

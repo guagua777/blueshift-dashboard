@@ -246,6 +246,36 @@
         "advanced-functionalities": "Chức năng nâng cao",
         "conclusion": "Kết luận"
       }
+    },
+    "mobile-dapp-fundamentals": {
+      "title": "Mobile Wallet Adapter",
+      "description": "Xây dựng dApps Solana mobile native với giao thức Mobile Wallet Adapter. Thành thạo kết nối ví, ký giao dịch và tích hợp React Native.",
+      "lessons": {
+        "introduction": "Giới thiệu",
+        "protocol-deep-dive": "Phân tích sâu giao thức",
+        "environment-setup": "Thiết lập môi trường",
+        "connecting-to-wallets": "Kết nối với ví",
+        "signing-transactions": "Ký giao dịch",
+        "signing-messages": "Ký tin nhắn",
+        "authorization-provider": "Authorization Provider",
+        "error-handling": "Xử lý lỗi",
+        "testing-on-device": "Kiểm thử trên thiết bị",
+        "conclusion": "Kết luận"
+      }
+    },
+    "mwa-deep-dive": {
+      "title": "MWA Deep Dive",
+      "description": "Làm chủ chi tiết bên trong giao thức Mobile Wallet Adapter. Học trao đổi khóa ECDH, mã hóa AES-GCM, phương thức JSON-RPC, xác minh danh tính và kỹ thuật gỡ lỗi.",
+      "lessons": {
+        "architecture": "Kiến trúc MWA",
+        "transport-layer": "Tầng vận chuyển",
+        "association": "Liên kết",
+        "session-establishment": "Thiết lập phiên",
+        "encrypted-messages": "Giao thức tin nhắn mã hóa",
+        "rpc-methods": "Tham chiếu phương thức JSON-RPC",
+        "identity-verification": "Xác minh danh tính",
+        "reflector-and-debugging": "Giao thức Reflector & Gỡ lỗi"
+      }
     }
   }
 }

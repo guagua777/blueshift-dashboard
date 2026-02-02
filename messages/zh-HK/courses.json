@@ -226,6 +226,36 @@
         "advanced-functionalities": "進階功能",
         "conclusion": "總結"
       }
+    },
+    "mobile-dapp-fundamentals": {
+      "title": "移動錢包適配器",
+      "description": "使用移動錢包適配器協議構建原生Solana移動dApp。掌握錢包連接、交易簽名和React Native整合。",
+      "lessons": {
+        "introduction": "介紹",
+        "protocol-deep-dive": "協議深入分析",
+        "environment-setup": "環境配置",
+        "connecting-to-wallets": "連接錢包",
+        "signing-transactions": "簽署交易",
+        "signing-messages": "簽署訊息",
+        "authorization-provider": "授權提供者",
+        "error-handling": "錯誤處理",
+        "testing-on-device": "裝置測試",
+        "conclusion": "總結"
+      }
+    },
+    "mwa-deep-dive": {
+      "title": "MWA 深入解析",
+      "description": "掌握 Mobile Wallet Adapter 協議內部機制。學習 ECDH 密鑰交換、AES-GCM 加密、JSON-RPC 方法、身份驗證和除錯技術。",
+      "lessons": {
+        "architecture": "MWA 架構",
+        "transport-layer": "傳輸層",
+        "association": "關聯",
+        "session-establishment": "會話建立",
+        "encrypted-messages": "加密訊息協議",
+        "rpc-methods": "JSON-RPC 方法參考",
+        "identity-verification": "身份驗證",
+        "reflector-and-debugging": "反射器協議與除錯"
+      }
     }
   }
 }

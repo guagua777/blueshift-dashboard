@@ -40,14 +40,17 @@ export async function generateMetadata({
     height: 630,
   };
 
-  const title = `${t("metadata.title")} | ${t(`courses.${courseName}.title`)} | ${t(`courses.${courseName}.lessons.${lessonName}`)}`;
+  // SEO-optimized: Lesson | Course | Brand (keywords first)
+  const lessonTitle = t(`courses.${courseName}.lessons.${lessonName}.title`);
+  const courseTitle = t(`courses.${courseName}.title`);
+  const title = `${lessonTitle} | ${courseTitle} | Blueshift`;
 
   // Build the relative path without locale for alternates
   const basePath = `/courses/${courseName}/${lessonName}`;
 
   return {
     title: title,
-    description: t("metadata.description"),
+    description: t(`courses.${courseName}.lessons.${lessonName}.description`),
     alternates: {
       canonical: `/${locale}${basePath}`,
       languages: {
@@ -62,16 +65,17 @@ export async function generateMetadata({
       },
     },
     openGraph: {
-      title: title,
-      type: "website",
-      description: t("metadata.description"),
-      siteName: title,
+      title: lessonTitle, // Shorter for social sharing
+      type: "article", // More accurate for lesson content
+      description: t(`courses.${courseName}.lessons.${lessonName}.description`),
+      siteName: "Blueshift Education",
       url: pathname,
       images: [
         {
           url: ogImage.src,
           width: ogImage.width,
           height: ogImage.height,
+          alt: `${courseTitle} course banner`,
         },
       ],
     },

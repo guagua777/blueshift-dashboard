@@ -137,4 +137,19 @@ export const paths: PathMetadata[] = [
       { type: "course", slug: "solana-pay" },
     ],
   },
+  {
+    slug: "solana-mobile-mastery",
+    language: "Mobile",
+    color: BRAND_COLOURS.mobile,
+    difficulty: 2,
+    isFeatured: true,
+    estimatedHours: 18,
+    steps: [
+      { type: "course", slug: "mobile-dapp-fundamentals" },
+      { type: "course", slug: "mwa-deep-dive" },
+      { type: "course", slug: "embedded-wallets" },
+      { type: "course", slug: "on-chain-operations" },
+      { type: "course", slug: "dapp-store-publishing" },
+    ],
+  },
 ];

@@ -246,6 +246,172 @@
         "advanced-functionalities": "Advanced Functionalities",
         "conclusion": "Conclusion"
       }
+    },
+    "mobile-dapp-fundamentals": {
+      "title": "Solana Mobile Development: React Native & MWA Tutorial",
+      "description": "Build native Solana dApps with Mobile Wallet Adapter protocol. Implement wallet connections, transaction signing, and authorization in React Native applications.",
+      "lessons": {
+        "introduction": {
+          "title": "Introduction to Mobile Wallet Adapter",
+          "description": "Discover why Mobile Wallet Adapter exists and how MWA differs from web wallet-adapter. Learn the session-based architecture for native Solana mobile apps."
+        },
+        "protocol-deep-dive": {
+          "title": "Mobile Wallet Adapter Protocol Architecture",
+          "description": "Understand MWA's request-response model, URI schemes, and session lifecycle. See how Android intents enable wallet communication in native apps."
+        },
+        "environment-setup": {
+          "title": "React Native Solana Development Environment",
+          "description": "Configure React Native for Solana mobile development. Install MWA libraries, set up Android emulators, and prepare your mobile development workspace."
+        },
+        "connecting-to-wallets": {
+          "title": "Connecting to Solana Mobile Wallets",
+          "description": "Implement wallet discovery and connection in React Native. Handle MWA authorization flows and establish secure sessions with mobile wallet apps."
+        },
+        "signing-transactions": {
+          "title": "Transaction Signing in Mobile Wallet Adapter",
+          "description": "Send transactions to mobile wallets for user approval. Handle signing responses, errors, and implement proper transaction confirmation patterns."
+        },
+        "signing-messages": {
+          "title": "Message Signing with MWA",
+          "description": "Request cryptographic message signatures from mobile wallets. Implement authentication proofs and verify signed messages in your React Native app."
+        },
+        "authorization-provider": {
+          "title": "MWA Authorization Provider Pattern",
+          "description": "Build reusable authorization context for your mobile dApp. Manage wallet state, persist sessions, and handle authorization across app restarts."
+        },
+        "error-handling": {
+          "title": "Error Handling in Mobile Wallet Adapter",
+          "description": "Handle MWA protocol errors, wallet rejections, and network failures. Implement user-friendly error messages and recovery strategies for mobile apps."
+        },
+        "testing-on-device": {
+          "title": "Testing Solana Mobile dApps on Device",
+          "description": "Test MWA integration on physical Android devices. Debug wallet connections, inspect transaction flows, and validate your mobile dApp behavior."
+        },
+        "conclusion": {
+          "title": "Mobile dApp Fundamentals Conclusion",
+          "description": "Review Mobile Wallet Adapter fundamentals and key implementation patterns. Next steps for building production-ready Solana mobile applications."
+        }
+      }
+    },
+    "mwa-deep-dive": {
+      "title": "Mobile Wallet Adapter Protocol: ECDH, AES-GCM & JSON-RPC",
+      "description": "Master MWA protocol internals: ECDH key exchange, AES-GCM encryption, JSON-RPC methods, identity verification, and debugging techniques for mobile wallets.",
+      "lessons": {
+        "architecture": {
+          "title": "Mobile Wallet Adapter Architecture",
+          "description": "Examine MWA's layered architecture: transport layer, encryption layer, and RPC layer. Understand how each component enables secure mobile wallet communication."
+        },
+        "transport-layer": {
+          "title": "MWA Transport Layer Implementation",
+          "description": "Understand Android intent-based transport and local socket connections. See how MWA establishes bidirectional communication between dApps and wallets."
+        },
+        "association": {
+          "title": "MWA Association Protocol",
+          "description": "Learn the MWA association handshake that initiates wallet sessions. Implement URI scheme handling and association request validation."
+        },
+        "session-establishment": {
+          "title": "ECDH Session Establishment in MWA",
+          "description": "Implement Elliptic Curve Diffie-Hellman key exchange for MWA sessions. Generate shared secrets and establish encrypted communication channels."
+        },
+        "encrypted-messages": {
+          "title": "AES-GCM Encryption in Mobile Wallet Adapter",
+          "description": "Encrypt and decrypt MWA messages using AES-GCM with ECDH-derived keys. Implement proper nonce handling and authentication tag verification."
+        },
+        "rpc-methods": {
+          "title": "MWA JSON-RPC Method Reference",
+          "description": "Complete reference for MWA JSON-RPC methods: authorize, reauthorize, deauthorize, sign_transactions, and sign_messages. Parameters and response formats."
+        },
+        "identity-verification": {
+          "title": "Wallet Identity Verification in MWA",
+          "description": "Verify wallet identity using MWA's cryptographic proofs. Implement wallet public key verification and prevent man-in-the-middle attacks."
+        },
+        "reflector-and-debugging": {
+          "title": "MWA Reflector Protocol & Debugging Tools",
+          "description": "Debug MWA sessions with reflector protocol. Inspect encrypted messages, trace protocol flows, and diagnose wallet communication issues."
+        }
+      }
+    },
+    "embedded-wallets": {
+      "title": "Embedded Wallets: MPC, Passkeys & Smart Wallet Architecture",
+      "description": "Eliminate seed phrases with embedded wallets. Compare MPC threshold signatures, passkey-native smart wallets, and modular signer architectures.",
+      "lessons": {
+        "introduction": {
+          "title": "Introduction to Embedded Wallets",
+          "description": "Understand why embedded wallets remove seed phrases and improve onboarding. Compare MPC, passkeys, and smart wallet approaches for Solana applications."
+        },
+        "mpc-cryptography": {
+          "title": "Multi-Party Computation for Wallets",
+          "description": "Learn threshold signature schemes and MPC key generation. Understand how distributed key shares enable seedless wallet architectures on Solana."
+        },
+        "passkeys-webauthn": {
+          "title": "Passkeys and WebAuthn for Solana",
+          "description": "Implement passkey-based authentication with WebAuthn. Use hardware-backed keys for Solana wallet signing without managing private keys."
+        },
+        "smart-wallet-architectures": {
+          "title": "Smart Wallet Architectures on Solana",
+          "description": "Design program-based smart wallets with modular signers. Implement session keys, spending limits, and recovery mechanisms using Solana programs."
+        },
+        "choosing-implementation": {
+          "title": "Choosing Your Embedded Wallet Approach",
+          "description": "Compare trade-offs between MPC, passkeys, and smart wallets. Select the right architecture based on security requirements, cost, and user experience."
+        }
+      }
+    },
+    "on-chain-operations": {
+      "title": "Solana Mobile: RPC, Tokens, NFTs & Program Interaction",
+      "description": "Execute on-chain operations from mobile apps. Implement RPC connections, SPL token transfers, NFT operations with DAS API, and custom program interactions.",
+      "lessons": {
+        "introduction": {
+          "title": "Introduction to Mobile On-Chain Operations",
+          "description": "Overview of on-chain operations in mobile Solana apps. Understand RPC requirements, transaction construction, and mobile-specific optimization patterns."
+        },
+        "rpc-fundamentals": {
+          "title": "Solana RPC from Mobile Applications",
+          "description": "Configure RPC connections for mobile apps. Handle connection pooling, rate limiting, and implement fallback strategies for reliable mobile RPC access."
+        },
+        "token-operations": {
+          "title": "SPL Token Operations on Mobile",
+          "description": "Implement token transfers, balance queries, and account creation in mobile apps. Use @solana/spl-token with Mobile Wallet Adapter for token operations."
+        },
+        "nft-operations": {
+          "title": "NFT Operations with DAS API on Mobile",
+          "description": "Query and transfer NFTs using Digital Asset Standard API. Implement NFT galleries, metadata fetching, and collection queries in mobile applications."
+        },
+        "blinks-and-actions": {
+          "title": "Solana Blinks and Actions on Mobile",
+          "description": "Integrate Solana Actions and Blinks in mobile apps. Parse action URLs, render transaction previews, and execute blockchain actions from mobile interfaces."
+        },
+        "program-interaction": {
+          "title": "Custom Program Interaction from Mobile",
+          "description": "Interact with Solana programs from React Native. Build instructions, serialize account data, and invoke custom program methods in mobile applications."
+        }
+      }
+    },
+    "dapp-store-publishing": {
+      "title": "Publish Solana Mobile Apps: dApp Store & App Store Review",
+      "description": "Ship Solana mobile apps to production. Navigate Solana dApp Store, Apple App Store, and Google Play with APK signing, test accounts, and security best practices.",
+      "lessons": {
+        "introduction": {
+          "title": "Introduction to Mobile dApp Distribution",
+          "description": "Overview of distribution channels for Solana mobile apps. Compare Solana dApp Store, Apple App Store, and Google Play requirements and strategies."
+        },
+        "solana-dapp-store": {
+          "title": "Publishing to Solana dApp Store",
+          "description": "Submit your app to Solana dApp Store. Prepare metadata, screenshots, and app manifests. Meet dApp Store requirements for Solana mobile applications."
+        },
+        "app-store-strategies": {
+          "title": "App Store Review Strategies for Crypto Apps",
+          "description": "Navigate Apple and Google review for crypto apps. Provide test accounts, explain blockchain features, and pass app store review for Solana applications."
+        },
+        "mobile-security": {
+          "title": "Mobile Security for Solana Applications",
+          "description": "Implement security best practices for Solana mobile apps. Secure key storage, validate transactions, protect against common mobile vulnerabilities."
+        },
+        "production-best-practices": {
+          "title": "Production Operations for Mobile dApps",
+          "description": "Prepare mobile dApps for production. Implement crash reporting, analytics, RPC monitoring, and establish update strategies for live applications."
+        }
+      }
     }
   }
 }

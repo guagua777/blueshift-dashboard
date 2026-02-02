@@ -226,6 +226,36 @@
         "advanced-functionalities": "Розширені функціональності",
         "conclusion": "Висновок"
       }
+    },
+    "mobile-dapp-fundamentals": {
+      "title": "Mobile Wallet Adapter",
+      "description": "Створюйте нативні мобільні dApps Solana з протоколом Mobile Wallet Adapter. Опануйте підключення гаманців, підписання транзакцій та інтеграцію React Native.",
+      "lessons": {
+        "introduction": "Вступ",
+        "protocol-deep-dive": "Детальний огляд протоколу",
+        "environment-setup": "Налаштування середовища",
+        "connecting-to-wallets": "Підключення до гаманців",
+        "signing-transactions": "Підписання транзакцій",
+        "signing-messages": "Підписання повідомлень",
+        "authorization-provider": "Authorization Provider",
+        "error-handling": "Обробка помилок",
+        "testing-on-device": "Тестування на пристрої",
+        "conclusion": "Висновок"
+      }
+    },
+    "mwa-deep-dive": {
+      "title": "MWA Deep Dive",
+      "description": "Опануйте внутрішню роботу протоколу Mobile Wallet Adapter. Вивчіть обмін ключами ECDH, шифрування AES-GCM, методи JSON-RPC, верифікацію ідентичності та техніки налагодження.",
+      "lessons": {
+        "architecture": "Архітектура MWA",
+        "transport-layer": "Транспортний рівень",
+        "association": "Асоціація",
+        "session-establishment": "Встановлення сесії",
+        "encrypted-messages": "Протокол зашифрованих повідомлень",
+        "rpc-methods": "Довідник методів JSON-RPC",
+        "identity-verification": "Верифікація ідентичності",
+        "reflector-and-debugging": "Протокол Reflector та налагодження"
+      }
     }
   }
 }
