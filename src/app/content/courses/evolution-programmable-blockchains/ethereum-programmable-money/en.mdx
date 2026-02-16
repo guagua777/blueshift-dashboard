@@ -1,0 +1,66 @@
+import { ArticleSection } from "../../../../components/ArticleSection/ArticleSection";
+
+![Evolution of Programmable Blockchains course - From Bitcoin to smart contracts and scaling solutions](/graphics/course-banners/evolution-programmable-blockchains.png)
+
+# Ethereum and Programmable Money
+
+[Bitcoin](/courses/blockchain-fundamentals/bitcoin-first-blockchain) proved blockchain works for money. But what if you wanted blockchain to do more—loans, trades, organizations, games? [Bitcoin's limited scripting language](/courses/blockchain-fundamentals/bitcoin-first-blockchain#bitcoin-design-philosophy) makes this nearly impossible.
+
+Ethereum is a blockchain that runs smart contracts—programs that execute on every node and maintain state without central authority. This transformed blockchain from a payment network into a general-purpose computer for decentralized applications.
+
+<ArticleSection name="The Vision: A World Computer" id="vision-world-computer" level="h2" />
+
+Bitcoin only transfers value. The protocol supports basic conditions like multi-signature wallets and time locks, but cannot implement complex logic.
+
+In 2013, Vitalik Buterin proposed extending blockchain beyond payments. If blockchain can maintain state without central authority, it could also run arbitrary computation. Not just money transfers—any program that needs verifiable, unstoppable execution.
+
+Ethereum launched in 2015 as a blockchain that executes arbitrary code. Developers write programs called smart contracts that live on the blockchain. Anyone can interact with these programs by sending transactions. The entire network executes the code and agrees on the result.
+
+<ArticleSection name="Smart Contracts" id="smart-contracts" level="h2" />
+
+Smart contracts are programs that live on the blockchain and maintain state between executions.
+
+Traditional contracts require lawyers and courts to enforce terms. Smart contracts enforce themselves through code. The agreement is executable logic. The blockchain guarantees execution without trusted third parties.
+
+Consider a simple example: an escrow service. Alice wants to buy Bob's laptop for 1 ETH, but neither trusts the other. In the traditional system, they use an escrow service that holds Alice's money until Bob delivers the laptop.
+
+With a smart contract:
+1. Alice sends 1 ETH to the escrow contract
+2. The contract holds the funds
+3. When Alice confirms she received the laptop, the contract sends 1 ETH to Bob
+4. If Alice does not confirm within 30 days, the contract refunds Alice
+
+The contract executes exactly as written. No company can freeze funds, change terms, or disappear with the money.
+
+This capability enabled applications Bitcoin cannot support. Decentralized exchanges trade tokens without intermediaries. Lending protocols use algorithmic interest rates. Stablecoins maintain pegged values through on-chain collateral. NFT marketplaces handle unique digital assets. DAOs coordinate treasury spending through token-weighted voting.
+
+<ArticleSection name="Composability: Money Legos" id="composability" level="h2" />
+
+Smart contracts can call other smart contracts within the same transaction. This composability creates "money legos"—building complex financial applications by combining simple components.
+
+Consider this transaction flow:
+1. Borrow USDC from lending protocol A
+2. Trade USDC for ETH on decentralized exchange B
+3. Provide ETH as liquidity to lending protocol C
+4. Use the receipt token as collateral on protocol D
+5. Borrow more assets to repeat the process
+
+All five steps execute in a single atomic transaction. Either everything succeeds or everything reverts—no partial states. If step 4 fails, the entire transaction reverts, and you are back where you started.
+
+This enables arbitrage, flash loans, and complex trading strategies impossible in traditional finance. Developers build on existing protocols rather than rebuilding functionality from scratch.
+
+<ArticleSection name="What Ethereum Unlocked" id="what-ethereum-unlocked" level="h2" />
+
+Smart contracts enabled applications Bitcoin could not support.
+
+Decentralized Finance (DeFi) protocols handle lending, borrowing, and trading without banks. Uniswap, Aave, and MakerDAO manage billions of dollars in value entirely through smart contracts.
+
+Non-Fungible Tokens (NFTs) are unique digital assets with provable ownership. They represent art, collectibles, event tickets, in-game items, and digital identity.
+
+Decentralized Autonomous Organizations (DAOs) coordinate through token holder voting. They have no CEO, no board, and no traditional corporate structure. Treasury and operations are governed through code.
+
+Stablecoins maintain stable value against fiat currencies. USDC and DAI let crypto users avoid volatility without exiting to traditional banks.
+
+Prediction markets let users bet on future events with transparent, permissionless market making.
+
+Ethereum showed that blockchains can run arbitrary programs. The next question is how: [state, the EVM, and gas](/courses/evolution-programmable-blockchains/how-ethereum-works)—the machinery that executes contracts, and the reason Ethereum is expensive to use.

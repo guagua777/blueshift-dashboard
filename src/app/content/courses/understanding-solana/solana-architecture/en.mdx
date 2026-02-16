@@ -1,0 +1,185 @@
+import { ArticleSection } from "../../../../components/ArticleSection/ArticleSection";
+
+# Solana Architecture
+
+To [execute transactions in parallel](/courses/understanding-solana/why-solana-built#ordering-to-parallelism), Solana needs to know which transactions can run simultaneously. This requires a fundamental design choice: everything is an account.
+
+Programs don't store data. The separation of code and data enables parallelism. Transactions [declare accounts upfront](/courses/understanding-solana/why-solana-built#parallelization-requirements), so the runtime knows which can run in parallel. This is how Solana achieves high throughput.
+
+<ArticleSection name="Everything Is an Account" id="everything-is-account" level="h2" />
+
+Everything is an account.
+
+Ethereum treats contracts and accounts as distinct concepts. Contracts contain code and state. Accounts hold balances.
+
+Solana unifies this. Everything lives in accounts:
+- Your wallet is an account
+- A program (smart contract) is an account
+- A program's data is stored in separate accounts
+- Token balances are accounts
+- NFT metadata is accounts
+- Everything
+
+An account is a container with:
+- **Data:** Arbitrary bytes (up to 10 megabytes)
+- **Lamports:** Balance in Solana's smallest unit (1 SOL = 1,000,000,000 lamports)
+- **Owner:** The program that controls this account
+- **Executable flag:** Whether this account contains program code
+
+There's one primitive—accounts—rather than multiple interacting concepts.
+
+<ArticleSection name="Account Ownership" id="account-ownership" level="h2" />
+
+Every account is owned by a program. Only the owning program can modify the account's data or withdraw its lamports.
+
+**System Program:** The default owner for user wallets. When you create a new wallet, the System Program owns your account. This program handles basic operations: transferring SOL, allocating space, assigning ownership to other programs.
+
+**Token Program:** Owns all token accounts. When you hold USDC, you own an account that stores your balance. The Token Program owns this account and enforces transfer rules.
+
+**Your custom program:** When you build a Solana program, it can own accounts that store your application's data. Only your program can modify these accounts.
+
+Ownership is not about having a private key. Ownership means control. The owning program decides what happens to the account. Programs can manage assets and state without requiring private keys—they have native authority over their accounts.
+
+<ArticleSection name="Stateless Programs" id="stateless-programs" level="h2" />
+
+Programs don't store data because separation enables parallelism. Programs and data live in separate accounts.
+
+In Ethereum, contracts store data internally. A counter contract stores the count value inside the contract itself alongside the increment function. The data and code live in the same contract account.
+
+In Solana, programs are stateless. They contain only executable code, no data:
+
+```rust
+pub fn increment(accounts: &[AccountInfo]) -> ProgramResult {
+    let counter_account = &accounts[0];
+    let mut count = u64::from_le_bytes(counter_account.data[0..8]);
+    count += 1;
+    counter_account.data[0..8].copy_from_slice(&count.to_le_bytes());
+    Ok(())
+}
+```
+
+The program reads data from an account, processes it, and writes it back. The data lives in a separate account owned by the program.
+
+Separating code and data enables parallelism. Two transactions calling the same program with different data accounts can execute simultaneously. The program code is read-only. Only the data accounts change.
+
+Programs can be upgraded without migrating data. Change the code account, but data accounts remain unchanged and compatible.
+
+Each data account has an explicit owner. Permissions are straightforward—the owner program controls the account.
+
+Anyone can read account data directly without calling program code. This simplifies indexing and querying.
+
+<ArticleSection name="Transaction Structure" id="transaction-structure" level="h2" />
+
+Every Solana transaction explicitly lists which accounts it will access. This upfront declaration enables parallelism.
+
+A transaction contains:
+- **Instructions:** Individual operations to perform
+- **Accounts:** Complete list of accounts each instruction will touch
+- **Signatures:** Cryptographic signatures authorizing the transaction
+- **Recent blockhash:** Proves the transaction was created recently (prevents old transaction replay)
+
+For each account, the transaction declares:
+- **Signer:** Does this account need to sign the transaction?
+- **Writable:** Will this instruction modify this account?
+
+Example transaction structure:
+
+```rust
+Transaction {
+    signatures: [user_signature],
+    message: {
+        instructions: [
+            {
+                program_id: token_program,
+                accounts: [
+                    { pubkey: source_token_account, signer: false, writable: true },
+                    { pubkey: dest_token_account, signer: false, writable: true },
+                    { pubkey: owner_account, signer: true, writable: false },
+                ],
+                data: [transfer, amount: 1000000]
+            }
+        ]
+    }
+}
+```
+
+This transaction calls the Token Program to transfer tokens. It declares exactly which accounts will be accessed and which will be modified. The runtime uses this information to schedule parallel execution.
+
+<ArticleSection name="Why Declarations Enable Parallelism" id="declarations-enable-parallelism" level="h2" />
+
+If transactions touch different accounts, run them together. The Solana runtime builds a dependency graph from transaction declarations.
+
+Consider three pending transactions:
+- Transaction A: `[write: account_1, write: account_2]`
+- Transaction B: `[write: account_3, write: account_4]`
+- Transaction C: `[write: account_2, write: account_5]`
+
+The runtime analyzes:
+- Transactions A and B share no accounts → execute simultaneously
+- Transaction C conflicts with A (both touch account_2) → wait until A completes
+- Transaction C does not conflict with B → can run with B
+
+The scheduler executes:
+- CPU Core 1: Transaction A, then Transaction C
+- CPU Core 2: Transaction B
+
+This parallelism is only possible because transactions declare their accounts upfront. Without declarations, the runtime would need to execute transactions sequentially to discover conflicts dynamically.
+
+Transactions must declare accounts before execution. This restriction enables the optimization that makes Solana fast.
+
+<ArticleSection name="Rent and Account Economics" id="rent-account-economics" level="h2" />
+
+Storing data on-chain costs resources. Validators must keep account data in memory or fast storage to process transactions quickly.
+
+Solana charges "rent" for account storage. The term is historical—rent used to be deducted periodically, but now it works more like a refundable deposit.
+
+Every account must maintain a minimum balance proportional to its data size. Accounts with this balance are rent-exempt and persist indefinitely.
+
+The formula:
+```
+rent_exempt_minimum = (128 + account_data_size) * rent_per_byte * epochs_per_year
+```
+
+For a typical account storing 165 bytes, rent-exemption requires approximately 0.00114 SOL (about $0.11 at $100 per SOL).
+
+When you no longer need an account, you can close it and recover the rent-exempt balance. The data is wiped, and the lamports return to you.
+
+Developers must account for rent when creating accounts. Users pay rent deposits when minting NFTs or creating token accounts. These costs are small but not zero.
+
+<ArticleSection name="Programs as Accounts" id="programs-as-accounts" level="h2" />
+
+Programs are executable accounts marked with a special flag. When you deploy a Solana program, the compiled bytecode is uploaded to an account. The account's executable flag is set to true.
+
+Programs are immutable by default after deployment. To allow updates, programs specify an upgrade authority when deployed. The upgrade authority can deploy new bytecode to the program account.
+
+Developers can remove the upgrade authority, making the program permanently immutable. The code will never change—useful for security-critical programs.
+
+**Program accounts store:**
+- Compiled BPF bytecode (the actual executable code)
+- Metadata about the program
+- The program's executable flag (set to true)
+
+**Program accounts do NOT store:**
+- Application state or data
+- User information
+- Balances or holdings
+
+All program data lives in separate accounts owned by the program.
+
+<ArticleSection name="The Solana Virtual Machine" id="solana-virtual-machine" level="h2" />
+
+The Solana Virtual Machine (SVM) executes programs. It differs from the Ethereum Virtual Machine in several ways.
+
+The EVM is stack-based—operations push and pop values on a stack. The SVM uses registers, which reduces the overhead of moving data around during computation.
+
+Solana programs compile to BPF (Berkeley Packet Filter) bytecode, which compiles further to native machine code. This eliminates interpretation overhead and runs faster than bytecode.
+
+The SVM is designed for parallelism. It analyzes account dependencies and schedules transactions across multiple CPU cores.
+
+Instead of global state, the SVM enforces permissions per account. Programs can only access accounts explicitly passed to them, and can only modify accounts they own.
+
+The SVM eliminates interpretation overhead, uses efficient data structures, and parallelizes execution. The runtime maximizes transaction processing capacity.
+
+Solana's architecture—[Proof of History](/courses/understanding-solana/why-solana-built#proof-of-history), stateless programs, account model—solves one problem: blockchain at scale without sacrificing decentralization.
+
+To use Solana—whether building or transacting—you need to [understand accounts in depth](/courses/understanding-solana/accounts-ownership).
